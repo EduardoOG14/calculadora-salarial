@@ -64,31 +64,49 @@ export async function checkForAppUpdates(repository = DEFAULT_GITHUB_REPO) {
 
     clearTimeout(timeoutId);
 
-    if (response.status === 404) {
-      return {
-        success: true,
-        hasUpdate: false,
-        noReleases: true,
-        currentVersion: APP_VERSION,
-        message: `No se encontraron releases publicadas aún en ${cleanRepo}.`,
-      };
-    }
+    let data = null;
 
-    if (response.status === 403) {
+    if (response.status === 404) {
+      // Reintentar consultando la lista general de releases (por si no está marcada como 'latest')
+      try {
+        const listResponse = await fetch(`https://api.github.com/repos/${cleanRepo}/releases`, {
+          headers: {
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'CalculadoraSalarialApp',
+          },
+        });
+        if (listResponse.ok) {
+          const list = await listResponse.json();
+          if (Array.isArray(list) && list.length > 0) {
+            data = list[0];
+          }
+        }
+      } catch (e) {
+        // Ignorar fallo de respaldo
+      }
+
+      if (!data) {
+        return {
+          success: true,
+          hasUpdate: false,
+          noReleases: true,
+          currentVersion: APP_VERSION,
+          message: `No se encontraron releases publicadas aún en ${cleanRepo}.`,
+        };
+      }
+    } else if (response.status === 403) {
       return {
         success: false,
         error: 'Límite de peticiones de GitHub alcanzado temporalmente. Intenta nuevamente en unos minutos.',
       };
-    }
-
-    if (!response.ok) {
+    } else if (!response.ok) {
       return {
         success: false,
         error: `Error al consultar GitHub (Código ${response.status}). Verifica que el repositorio exista y sea público.`,
       };
+    } else {
+      data = await response.json();
     }
-
-    const data = await response.json();
     const latestTag = data.tag_name || data.name || '';
     const cleanLatestVersion = latestTag.replace(/^v/i, '').trim();
 
