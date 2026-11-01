@@ -1,5 +1,7 @@
-import { Linking } from 'react-native';
+import { NativeModules, DeviceEventEmitter, Linking, Platform } from 'react-native';
 import { APP_VERSION, DEFAULT_GITHUB_REPO } from '../constants/version';
+
+const { AppUpdater } = NativeModules;
 
 /**
  * Compara dos versiones en formato semver (ej: "1.0.1" vs "1.0.0", o con prefijo "v1.0.1")
@@ -118,6 +120,7 @@ export async function checkForAppUpdates(repository = DEFAULT_GITHUB_REPO) {
       assetName: apkAsset?.name || null,
       assetSizeMb: assetSizeMb,
       downloadCount: apkAsset?.download_count || 0,
+      hasDirectApk: !!apkAsset,
     };
   } catch (error) {
     if (error.name === 'AbortError') {
@@ -130,6 +133,66 @@ export async function checkForAppUpdates(repository = DEFAULT_GITHUB_REPO) {
       success: false,
       error: 'No se pudo conectar a GitHub. Verifica tu conexión a internet.',
     };
+  }
+}
+
+/**
+ * Comprueba si el módulo nativo de actualización directa está disponible
+ */
+export function isNativeUpdaterAvailable() {
+  return Platform.OS === 'android' && !!AppUpdater;
+}
+
+/**
+ * Comprueba si la app tiene permiso para instalar paquetes
+ */
+export async function canInstallPackages() {
+  if (Platform.OS === 'android' && AppUpdater?.canInstallPackages) {
+    try {
+      return await AppUpdater.canInstallPackages();
+    } catch (e) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Abre la pantalla de ajustes de Android para permitir instalar apps desconocidas
+ */
+export function openInstallPermissionSettings() {
+  if (Platform.OS === 'android' && AppUpdater?.openInstallPermissionSettings) {
+    AppUpdater.openInstallPermissionSettings();
+  }
+}
+
+/**
+ * Descarga el APK internamente mostrando progreso y lanza el instalador del sistema de Android
+ * @param {string} downloadUrl - Enlace de descarga del APK
+ * @param {Function} onProgress - Callback con { percent, downloaded, total }
+ */
+export async function downloadAndInstallApkDirectly(downloadUrl, onProgress) {
+  if (Platform.OS === 'android' && AppUpdater?.downloadApk && AppUpdater?.installApk) {
+    let subscription = null;
+    try {
+      if (onProgress) {
+        subscription = DeviceEventEmitter.addListener('onDownloadProgress', onProgress);
+      }
+      const downloadResult = await AppUpdater.downloadApk(downloadUrl);
+      if (subscription) {
+        subscription.remove();
+        subscription = null;
+      }
+      await AppUpdater.installApk(downloadResult.filePath);
+      return { success: true };
+    } catch (error) {
+      if (subscription) subscription.remove();
+      throw error;
+    }
+  } else {
+    // Respaldo para navegador
+    await Linking.openURL(downloadUrl);
+    return { success: true, openedBrowser: true };
   }
 }
 

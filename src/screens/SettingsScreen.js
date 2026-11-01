@@ -15,7 +15,11 @@ import {
 import { COLORS, DEFAULT_SETTINGS } from '../constants/theme';
 import { formatUSD, formatVES } from '../utils/calculator';
 import { APP_VERSION, DEFAULT_GITHUB_REPO } from '../constants/version';
-import { checkForAppUpdates, openUpdateDownloadUrl } from '../services/updateService';
+import {
+  checkForAppUpdates,
+  downloadAndInstallApkDirectly,
+  openUpdateDownloadUrl,
+} from '../services/updateService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SettingsScreen({
@@ -48,6 +52,9 @@ export default function SettingsScreen({
   const [updateStatus, setUpdateStatus] = useState(null); // { type: 'success' | 'available' | 'info' | 'error', message: string }
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [updateData, setUpdateData] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadError, setDownloadError] = useState(null);
 
   // Modal para editar nombre con lápiz
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -150,6 +157,27 @@ export default function SettingsScreen({
       });
     } finally {
       setCheckingUpdate(false);
+    }
+  };
+
+  const handleDirectUpdate = async () => {
+    if (!updateData?.downloadUrl) return;
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadError(null);
+
+    try {
+      await downloadAndInstallApkDirectly(updateData.downloadUrl, (event) => {
+        if (event && typeof event.percent === 'number' && event.percent >= 0) {
+          setDownloadProgress(event.percent);
+        }
+      });
+      // La descarga finalizó y el instalador de Android fue lanzado
+      setIsDownloading(false);
+    } catch (error) {
+      setIsDownloading(false);
+      const msg = error?.message || 'Error al descargar o iniciar la instalación.';
+      setDownloadError(msg);
     }
   };
 
@@ -898,42 +926,75 @@ export default function SettingsScreen({
               </Text>
             </ScrollView>
 
-            {/* Botones de acción */}
-            <View style={styles.updateModalActions}>
-              <TouchableOpacity
-                style={styles.updateDownloadBtn}
-                onPress={() => {
-                  openUpdateDownloadUrl(updateData?.downloadUrl);
-                  setUpdateModalVisible(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="download" size={20} color="#0F172A" />
-                <Text style={styles.updateDownloadBtnText}>Descargar e Instalar APK</Text>
-              </TouchableOpacity>
+            {/* Descarga / Instalación */}
+            {isDownloading ? (
+              <View style={styles.downloadProgressContainer}>
+                <View style={styles.downloadProgressHeader}>
+                  <ActivityIndicator size="small" color={COLORS.primaryLight} />
+                  <Text style={styles.downloadProgressTitle}>
+                    {downloadProgress >= 100
+                      ? 'Iniciando instalador...'
+                      : `Descargando actualización: ${downloadProgress}%`}
+                  </Text>
+                </View>
 
-              <View style={styles.updateSecondaryRow}>
-                {updateData?.releasePageUrl && (
-                  <TouchableOpacity
-                    style={styles.updateViewGitHubBtn}
-                    onPress={() => {
-                      openUpdateDownloadUrl(updateData.releasePageUrl);
-                      setUpdateModalVisible(false);
-                    }}
-                  >
-                    <MaterialCommunityIcons name="github" size={15} color={COLORS.textSecondary} />
-                    <Text style={styles.updateViewGitHubText}>Ver en GitHub</Text>
-                  </TouchableOpacity>
+                {/* Barra de progreso visual */}
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${Math.max(6, Math.min(100, downloadProgress))}%` },
+                    ]}
+                  />
+                </View>
+
+                <Text style={styles.downloadProgressHint}>
+                  La actualización se descarga directamente en tu dispositivo. Al completarse, se abrirá el asistente del sistema para confirmar la instalación.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.updateModalActions}>
+                {downloadError && (
+                  <View style={styles.downloadErrorBox}>
+                    <MaterialCommunityIcons name="alert-circle" size={16} color={COLORS.danger} />
+                    <Text style={styles.downloadErrorText}>{downloadError}</Text>
+                  </View>
                 )}
 
                 <TouchableOpacity
-                  style={styles.updateLaterBtn}
-                  onPress={() => setUpdateModalVisible(false)}
+                  style={styles.updateDownloadBtn}
+                  onPress={handleDirectUpdate}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.updateLaterText}>Más tarde</Text>
+                  <MaterialCommunityIcons name="lightning-bolt" size={20} color="#0F172A" />
+                  <Text style={styles.updateDownloadBtnText}>Instalar Actualización Ahora</Text>
                 </TouchableOpacity>
+
+                <View style={styles.updateSecondaryRow}>
+                  {updateData?.releasePageUrl && (
+                    <TouchableOpacity
+                      style={styles.updateViewGitHubBtn}
+                      onPress={() => {
+                        openUpdateDownloadUrl(updateData.releasePageUrl);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="open-in-new" size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.updateViewGitHubText}>Enlace externo</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.updateLaterBtn}
+                    onPress={() => {
+                      setUpdateModalVisible(false);
+                      setDownloadError(null);
+                    }}
+                  >
+                    <Text style={styles.updateLaterText}>Más tarde</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1496,5 +1557,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
     fontWeight: '600',
+  },
+  downloadProgressContainer: {
+    backgroundColor: COLORS.surface,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 8,
+  },
+  downloadProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  downloadProgressTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 6,
+  },
+  downloadProgressHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+  },
+  downloadErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  downloadErrorText: {
+    flex: 1,
+    color: COLORS.danger,
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 15,
   },
 });
