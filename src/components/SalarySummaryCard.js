@@ -72,7 +72,7 @@ export default function SalarySummaryCard({
         {/* Quincena 1 */}
         <View style={[styles.quincenaCard, styles.quincenaCardFirst]}>
           <View style={styles.pillTagFirst}>
-            <Text style={styles.pillTagFirstText}>PAGO DÍA 1</Text>
+            <Text style={styles.pillTagFirstText}>PAGO DÍA 1 ({calculation.firstCutPercent || 50}%)</Text>
           </View>
           <Text style={styles.amountUSDFirst}>{formatUSD(firstCutTotal)}</Text>
           {bcvRate > 0 && (
@@ -84,9 +84,9 @@ export default function SalarySummaryCard({
         {/* Quincena 2 */}
         <View style={[styles.quincenaCard, styles.quincenaCardSecond]}>
           <View style={styles.pillTagSecond}>
-            <Text style={styles.pillTagSecondText}>PAGO DÍA 15</Text>
+            <Text style={styles.pillTagSecondText}>PAGO DÍA 15 ({calculation.secondCutPercent || 50}%)</Text>
           </View>
-          <Text style={styles.amountUSDSecond}>{formatUSD(secondCutTotal)}</Text>
+          <Text style={[styles.amountUSDSecond, { color: '#818CF8' }]}>{formatUSD(secondCutTotal)}</Text>
           {bcvRate > 0 && (
             <Text style={styles.amountVES}>≈ {formatVES(secondCutVES)}</Text>
           )}

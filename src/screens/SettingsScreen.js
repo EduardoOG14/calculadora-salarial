@@ -171,7 +171,7 @@ export default function SettingsScreen({
           </View>
         )}
 
-        {/* 1. Sueldo Base Mensual y Porcentaje del Día 1 */}
+        {/* 1. Sueldo Base Mensual y Porcentaje Editable del Día 1 */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>💰 TU SUELDO BASE MENSUAL</Text>
 
@@ -188,28 +188,38 @@ export default function SettingsScreen({
             <Text style={styles.monthUnit}>/ mes</Text>
           </View>
 
-          {/* Campo editable de Porcentaje del Día 1 */}
-          <Text style={styles.quincenaLabel}>% del Sueldo Base a cobrar el 1ro de cada mes:</Text>
-          <View style={styles.percentInputRow}>
-            <TextInput
-              style={styles.percentInput}
-              keyboardType="decimal-pad"
-              value={firstCutPercent}
-              onChangeText={(val) => {
-                const clean = val.replace(/[^0-9.,]/g, '');
-                setFirstCutPercent(clean);
-              }}
-              placeholder="50"
-              placeholderTextColor="#64748B"
-              maxLength={5}
-            />
-            <Text style={styles.percentSymbol}>%</Text>
-            <Text style={styles.percentSubText}>
-              (El día 15 cobrará el {day15Percent}% restante)
-            </Text>
+          {/* Campo editable para indicar el porcentaje del sueldo base el 1ro de cada mes */}
+          <Text style={styles.quincenaLabel}>% DEL SUELDO BASE A COBRAR EL 1RO DE CADA MES:</Text>
+          
+          <View style={styles.percentBoxContainer}>
+            <View style={styles.percentInputBox}>
+              <TextInput
+                style={styles.percentTextInputBig}
+                keyboardType="numeric"
+                value={firstCutPercent}
+                onChangeText={(val) => {
+                  const clean = val.replace(/[^0-9.,]/g, '');
+                  setFirstCutPercent(clean);
+                }}
+                placeholder="50"
+                placeholderTextColor="#64748B"
+                maxLength={5}
+                selectTextOnFocus
+              />
+              <Text style={styles.percentSymbolBig}>%</Text>
+            </View>
+
+            <View style={styles.percentExplanationCol}>
+              <Text style={styles.percentExplTitle}>
+                Día 1: <Text style={{ color: '#10B981', fontWeight: '900' }}>{firstCutPercent || '0'}%</Text>
+              </Text>
+              <Text style={styles.percentExplSub}>
+                Día 15: <Text style={{ color: '#818CF8', fontWeight: '900' }}>{day15Percent}%</Text> restante
+              </Text>
+            </View>
           </View>
 
-          {/* Chips de selección rápida */}
+          {/* Atajos de porcentaje rápido */}
           <View style={styles.chipsRow}>
             {[
               { label: '50% / 50%', val: '50' },
@@ -653,40 +663,55 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   quincenaLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '700',
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '900',
+    letterSpacing: 0.5,
     marginTop: 14,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  percentInputRow: {
+  percentBoxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  percentInputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1E293B',
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    minWidth: 90,
   },
-  percentInput: {
-    fontSize: 18,
+  percentTextInputBig: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    minWidth: 48,
+  },
+  percentSymbolBig: {
+    fontSize: 20,
     fontWeight: '900',
     color: '#818CF8',
-    minWidth: 44,
+    marginLeft: 4,
   },
-  percentSymbol: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#818CF8',
-    marginRight: 8,
+  percentExplanationCol: {
+    flex: 1,
+    gap: 3,
   },
-  percentSubText: {
-    fontSize: 11,
+  percentExplTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  percentExplSub: {
+    fontSize: 12,
     color: '#94A3B8',
     fontWeight: '600',
-    flex: 1,
   },
   chipsRow: {
     flexDirection: 'row',
