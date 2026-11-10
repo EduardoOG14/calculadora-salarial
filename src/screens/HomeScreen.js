@@ -36,10 +36,9 @@ export default function HomeScreen({
   const [selectedDay, setSelectedDay] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Calcular salario del mes completo en tiempo real
+  // Cálculo en tiempo real
   const calculation = calculateSalary(settings, records, year, month);
 
-  // Abrir modal de inspección / detalle para un día
   const handleOpenDay = (day) => {
     setSelectedDay(day);
     setModalVisible(true);
@@ -56,7 +55,7 @@ export default function HomeScreen({
     }
   };
 
-  // Manejo directo de Pincel Activo (Don't Make Me Think - 1 solo toque)
+  // Pincel rápido (1 Toque directo)
   const handleQuickApplyBrush = (day, brushType) => {
     const current = records[day] || {};
     let updated = { ...current };
@@ -91,14 +90,12 @@ export default function HomeScreen({
     onSaveDay(year, month, day, updated);
   };
 
-  // Aplicación en lote (Semana actual, Fines de semana, Todo el mes)
   const handleBatchApply = (daysArray, patchData) => {
     if (onSaveMultipleDays && daysArray.length > 0) {
       onSaveMultipleDays(year, month, daysArray, patchData);
     }
   };
 
-  // Compartir resumen por WhatsApp u otras apps con 1 toque
   const handleShareSummary = async () => {
     try {
       const text = generateShareText(calculation, settings, year, month, bcvRate);
@@ -117,13 +114,11 @@ export default function HomeScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Barra superior */}
+        {/* Barra superior minimalista */}
         <View style={styles.topBar}>
           <View>
             <Text style={styles.appTitle}>Calculadora Salarial</Text>
-            <Text style={styles.appSubtitle}>
-              {MONTH_NAMES[month]} {year} • Moneda: USD ($)
-            </Text>
+            <Text style={styles.appSubtitle}>Toca los días para marcar tus guardias</Text>
           </View>
 
           <TouchableOpacity
@@ -131,11 +126,11 @@ export default function HomeScreen({
             onPress={handleShareSummary}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="share-variant" size={20} color={COLORS.primaryLight} />
+            <MaterialCommunityIcons name="share-variant" size={20} color="#10B981" />
           </TouchableOpacity>
         </View>
 
-        {/* Tarjeta de cálculo automático con Cortes Quincenales 1 y 15 */}
+        {/* Tarjeta de Salario Simplificada */}
         <SalarySummaryCard
           calculation={calculation}
           periodName={`${MONTH_NAMES[month]} ${year}`}
@@ -144,7 +139,7 @@ export default function HomeScreen({
           onRefreshBcv={onRefreshBcv}
         />
 
-        {/* Calendario interactivo con Modo Pincel ("Don't Make Me Think") */}
+        {/* Calendario ultra intuitivo con Modo Pincel */}
         <CalendarView
           year={year}
           month={month}
@@ -157,17 +152,9 @@ export default function HomeScreen({
           onBatchApply={handleBatchApply}
           onClearMonth={onClearMonth}
         />
-
-        {/* Ayuda contextual sutil */}
-        <View style={styles.hintBox}>
-          <MaterialCommunityIcons name="gesture-tap" size={16} color={COLORS.indigoLight} />
-          <Text style={styles.hintText}>
-            Toca directamente cualquier día para marcarlo con la herramienta activa. Mantén presionado un día para añadir notas o montos específicos.
-          </Text>
-        </View>
       </ScrollView>
 
-      {/* Modal para inspeccionar/añadir notas a un día específico */}
+      {/* Modal para detalles/notas si se mantiene presionado un día */}
       <DayModal
         visible={modalVisible}
         day={selectedDay}
@@ -185,55 +172,36 @@ export default function HomeScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#090D16',
   },
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: 24,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 6,
+    paddingTop: 16,
+    paddingBottom: 4,
   },
   appTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.text,
+    color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   appSubtitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: '#64748B',
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   shareBtn: {
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: '#1E293B',
     padding: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  hintBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.25)',
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 11,
-    color: COLORS.indigoLight,
-    lineHeight: 16,
-    fontWeight: '500',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

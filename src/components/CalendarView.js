@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Vibration,
-  Alert,
 } from 'react-native';
 import { COLORS } from '../constants/theme';
 import {
@@ -16,8 +15,8 @@ import {
 } from '../utils/calculator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Días de la semana empezando en Lunes
-const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+// Días de la semana en formato claro
+const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 export default function CalendarView({
   year,
@@ -32,22 +31,19 @@ export default function CalendarView({
   onClearMonth,
 }) {
   // Pincel activo seleccionado:
-  // 'guardia' | 'guardiaCompleta' | 'special' | 'weekend' | 'overtime' | 'eraser' | 'inspect'
+  // 'guardia' | 'guardiaCompleta' | 'weekend' | 'overtime' | 'eraser'
   const [activeBrush, setActiveBrush] = useState('guardia');
 
   const totalDays = getDaysInMonth(year, month);
-
-  // Primer día del mes (0 = Domingo, 1 = Lunes, etc.)
   const firstDayDate = new Date(year, month, 1);
   const firstDayOfWeek = (firstDayDate.getDay() + 6) % 7; // Convertir para que 0 sea Lunes
 
-  // Construir las celdas del mes
+  // Celdas del calendario
   const cells = [];
   for (let i = 0; i < firstDayOfWeek; i++) {
     cells.push({ type: 'empty', key: `empty-${i}` });
   }
 
-  let daysWithActivityCount = 0;
   for (let d = 1; d <= totalDays; d++) {
     const rec = records[d] || null;
     const isWk = isWeekendDay(year, month, d);
@@ -58,7 +54,6 @@ export default function CalendarView({
         rec.isSpecialPay ||
         rec.overtimeHours > 0 ||
         (rec.isWeekend && isWk));
-    if (hasActivity) daysWithActivityCount++;
 
     cells.push({
       type: 'day',
@@ -74,18 +69,8 @@ export default function CalendarView({
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
   const currentDay = isCurrentMonth ? today.getDate() : -1;
 
-  // Manejo de pulsación rápida sobre un día con la modalidad "Don't Make Me Think"
+  // Tocar un día aplica el pincel seleccionado directamente
   const handleDayPress = (day) => {
-    // Si la herramienta activa es "Detalle / Inspeccionar", abrir modal completo
-    if (activeBrush === 'inspect') {
-      try {
-        Vibration.vibrate(20);
-      } catch (e) {}
-      onSelectDay(day);
-      return;
-    }
-
-    // Vibración táctil inmediata al aplicar con el pincel
     try {
       Vibration.vibrate(25);
     } catch (e) {}
@@ -95,7 +80,7 @@ export default function CalendarView({
     }
   };
 
-  // Pulsación prolongada: siempre abre el detalle completo con notas y ajustes
+  // Mantener presionado abre el detalle (para notas o tarifa personalizada)
   const handleDayLongPress = (day) => {
     try {
       Vibration.vibrate(40);
@@ -103,308 +88,98 @@ export default function CalendarView({
     onSelectDay(day);
   };
 
-  // --- ATAJOS RÁPIDOS EN LOTE (Smart Presets) ---
-
-  // 1. Fines de semana: marca todos los sábados y domingos
+  // Atajo: Fines de semana
   const handleBatchWeekends = () => {
-    try {
-      Vibration.vibrate(30);
-    } catch (e) {}
+    try { Vibration.vibrate(30); } catch (e) {}
     const weekends = [];
     for (let d = 1; d <= totalDays; d++) {
       if (isWeekendDay(year, month, d)) weekends.push(d);
     }
-
-    // Comprobar si ya todos los fines de semana tienen marca de fin de semana
     const allMarked = weekends.every((d) => records[d] && records[d].isWeekend);
-
     if (onBatchApply) {
       onBatchApply(weekends, { isWeekend: !allMarked });
     }
   };
 
-  // 2. Semana actual (Lunes a Viernes)
-  const handleBatchCurrentWeek = () => {
-    try {
-      Vibration.vibrate(30);
-    } catch (e) {}
+  // Atajo: Lunes a Viernes
+  const handleBatchWorkDays = () => {
+    try { Vibration.vibrate(30); } catch (e) {}
     const refDate = isCurrentMonth ? today : new Date(year, month, 1);
-    const dayOfWeek = (refDate.getDay() + 6) % 7; // 0 = Lun, 1 = Mar, ..., 6 = Dom
+    const dayOfWeek = (refDate.getDay() + 6) % 7;
     const monday = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate() - dayOfWeek);
 
-    const weekWorkDays = [];
+    const workDays = [];
     for (let i = 0; i < 5; i++) {
       const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
       if (d.getFullYear() === year && d.getMonth() === month) {
-        weekWorkDays.push(d.getDate());
+        workDays.push(d.getDate());
       }
     }
 
-    if (weekWorkDays.length === 0) {
+    if (workDays.length === 0) {
       for (let d = 1; d <= totalDays; d++) {
         if (!isWeekendDay(year, month, d)) {
-          weekWorkDays.push(d);
-          if (weekWorkDays.length === 5) break;
+          workDays.push(d);
+          if (workDays.length === 5) break;
         }
       }
     }
 
-    // Aplicar la herramienta activa a los días de la semana
-    let patch = {};
-    if (activeBrush === 'guardia') patch = { isGuardia: true };
-    else if (activeBrush === 'guardiaCompleta') patch = { isGuardiaCompleta: true };
-    else if (activeBrush === 'special') patch = { isSpecialPay: true };
-    else if (activeBrush === 'eraser') patch = { isGuardia: false, isGuardiaCompleta: false, isSpecialPay: false, overtimeHours: 0, isWeekend: false, notes: '' };
-    else patch = { isGuardia: true };
-
-    if (onBatchApply && weekWorkDays.length > 0) {
-      onBatchApply(weekWorkDays, patch);
-    }
-  };
-
-  // 3. Todo el mes con la herramienta activa
-  const handleBatchAllMonth = () => {
-    Alert.alert(
-      'Marcar todo el mes',
-      `¿Deseas aplicar "${getBrushLabel(activeBrush)}" a todos los ${totalDays} días de este mes?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sí, aplicar',
-          onPress: () => {
-            const allDays = [];
-            for (let d = 1; d <= totalDays; d++) allDays.push(d);
-
-            let patch = {};
-            if (activeBrush === 'guardia') patch = { isGuardia: true };
-            else if (activeBrush === 'guardiaCompleta') patch = { isGuardiaCompleta: true };
-            else if (activeBrush === 'special') patch = { isSpecialPay: true };
-            else if (activeBrush === 'weekend') patch = { isWeekend: true };
-            else if (activeBrush === 'eraser') patch = { isGuardia: false, isGuardiaCompleta: false, isSpecialPay: false, overtimeHours: 0, isWeekend: false, notes: '' };
-            else patch = { isGuardia: true };
-
-            if (onBatchApply) onBatchApply(allDays, patch);
-          },
-        },
-      ]
-    );
-  };
-
-  // 4. Limpiar mes completo
-  const handleClearMonthPress = () => {
-    if (onClearMonth) {
-      Alert.alert(
-        'Limpiar mes',
-        `¿Deseas borrar todas las guardias y registros de ${MONTH_NAMES[month]} ${year}?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Sí, borrar todo',
-            style: 'destructive',
-            onPress: () => onClearMonth(year, month),
-          },
-        ]
-      );
-    }
-  };
-
-  const getBrushLabel = (type) => {
-    switch (type) {
-      case 'guardia':
-        return settings?.guardDutyName || 'Guardia Regular';
-      case 'guardiaCompleta':
-        return settings?.fullGuardDutyName || 'Guardia Completa';
-      case 'special':
-        return settings?.specialPayName || 'Guardia Especial';
-      case 'weekend':
-        return settings?.weekendName || 'Fin de Semana';
-      case 'overtime':
-        return settings?.overtimeName || '+1h Extra';
-      case 'eraser':
-        return 'Borrar día';
-      case 'inspect':
-        return 'Detalle / Notas';
-      default:
-        return 'Guardia';
-    }
-  };
-
-  const getBrushIcon = (type) => {
-    switch (type) {
-      case 'guardia':
-        return 'shield';
-      case 'guardiaCompleta':
-        return 'shield-star';
-      case 'special':
-        return 'star';
-      case 'weekend':
-        return 'beach';
-      case 'overtime':
-        return 'clock-plus-outline';
-      case 'eraser':
-        return 'eraser';
-      case 'inspect':
-        return 'card-text-outline';
-      default:
-        return 'checkbox-blank-circle-outline';
-    }
-  };
-
-  const getBrushColor = (type) => {
-    switch (type) {
-      case 'guardia':
-        return COLORS.guardia;
-      case 'guardiaCompleta':
-        return COLORS.guardiaCompleta;
-      case 'special':
-        return COLORS.special;
-      case 'weekend':
-        return COLORS.weekend;
-      case 'overtime':
-        return COLORS.overtime;
-      case 'eraser':
-        return COLORS.danger;
-      case 'inspect':
-        return COLORS.primaryLight;
-      default:
-        return COLORS.text;
+    if (onBatchApply && workDays.length > 0) {
+      onBatchApply(workDays, { isGuardia: true });
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* 1. Barra de Navegación de Mes */}
-      <View style={styles.navRow}>
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={onPrevMonth}
-          activeOpacity={0.7}
-          delayPressIn={0}
-        >
-          <MaterialCommunityIcons name="chevron-left" size={26} color={COLORS.text} />
+      {/* 1. Selector de Mes */}
+      <View style={styles.headerRow}>
+        <TouchableOpacity style={styles.arrowBtn} onPress={onPrevMonth} activeOpacity={0.7}>
+          <MaterialCommunityIcons name="chevron-left" size={26} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <View style={styles.navTitleContainer}>
-          <Text style={styles.monthTitle}>
-            {MONTH_NAMES[month]} {year}
-          </Text>
-          <Text style={styles.periodIndicator}>
-            {daysWithActivityCount} día(s) con actividad • Cortes 1 y 15
-          </Text>
-        </View>
+        <Text style={styles.headerTitle}>
+          {MONTH_NAMES[month]} {year}
+        </Text>
 
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={onNextMonth}
-          activeOpacity={0.7}
-          delayPressIn={0}
-        >
-          <MaterialCommunityIcons name="chevron-right" size={26} color={COLORS.text} />
+        <TouchableOpacity style={styles.arrowBtn} onPress={onNextMonth} activeOpacity={0.7}>
+          <MaterialCommunityIcons name="chevron-right" size={26} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {/* 2. Atajos rápidos inteligentes (1 solo toque) */}
-      <View style={styles.smartPresetsRow}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.smartPresetsScroll}
+      {/* 2. Atajos rápidos esenciales (Solo 2 botones grandes y claros) */}
+      <View style={styles.presetRow}>
+        <TouchableOpacity
+          style={[styles.presetBtn, styles.presetWeekend]}
+          onPress={handleBatchWeekends}
+          activeOpacity={0.7}
         >
-          <TouchableOpacity
-            style={[styles.presetPill, styles.presetPillWeekend]}
-            onPress={handleBatchWeekends}
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <MaterialCommunityIcons name="beach" size={14} color={COLORS.weekend} />
-            <Text style={[styles.presetPillText, { color: COLORS.weekend }]}>
-              Fines de semana
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.presetEmoji}>🏖️</Text>
+          <Text style={[styles.presetText, { color: '#F472B6' }]}>Fines de semana</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.presetPill}
-            onPress={handleBatchCurrentWeek}
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <MaterialCommunityIcons name="calendar-week" size={14} color={COLORS.indigoLight} />
-            <Text style={styles.presetPillText}>Semana actual (Lun-Vie)</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.presetPill}
-            onPress={handleBatchAllMonth}
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <MaterialCommunityIcons name="calendar-month-outline" size={14} color={COLORS.primaryLight} />
-            <Text style={styles.presetPillText}>Todo el mes</Text>
-          </TouchableOpacity>
-
-          {daysWithActivityCount > 0 && (
-            <TouchableOpacity
-              style={[styles.presetPill, styles.presetPillDanger]}
-              onPress={handleClearMonthPress}
-              activeOpacity={0.7}
-              delayPressIn={0}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={14} color={COLORS.danger} />
-              <Text style={[styles.presetPillText, { color: COLORS.danger }]}>Limpiar mes</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
+        <TouchableOpacity
+          style={[styles.presetBtn, styles.presetWorkweek]}
+          onPress={handleBatchWorkDays}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.presetEmoji}>💼</Text>
+          <Text style={[styles.presetText, { color: '#818CF8' }]}>Lunes a Viernes</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 3. Indicador dinámico de Pincel Activo */}
-      <View style={[styles.brushBanner, { borderColor: getBrushColor(activeBrush) + '55' }]}>
-        <View style={styles.brushBannerLeft}>
-          <View
-            style={[
-              styles.brushIndicatorIconBox,
-              { backgroundColor: getBrushColor(activeBrush) + '22' },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={getBrushIcon(activeBrush)}
-              size={16}
-              color={getBrushColor(activeBrush)}
-            />
-          </View>
-          <View>
-            <Text style={styles.brushBannerLabel}>
-              PINCEL: <Text style={{ color: getBrushColor(activeBrush), fontWeight: '900' }}>{getBrushLabel(activeBrush)}</Text>
-            </Text>
-            <Text style={styles.brushBannerSub}>
-              {activeBrush === 'inspect'
-                ? 'Toca un día para ver detalle, o mantén presionado.'
-                : activeBrush === 'eraser'
-                ? 'Toca cualquier día para borrar sus marcas.'
-                : activeBrush === 'overtime'
-                ? 'Toca para sumar +1h extra a cada día.'
-                : 'Toca días directamente para marcar o desmarcar.'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 4. Cabecera de días de la semana */}
+      {/* 3. Días de la semana */}
       <View style={styles.weekdaysRow}>
-        {WEEKDAYS.map((wd, idx) => (
-          <View key={wd} style={styles.weekdayCell}>
-            <Text
-              style={[
-                styles.weekdayText,
-                (idx === 5 || idx === 6) && styles.weekendTextHeader,
-              ]}
-            >
-              {wd}
+        {WEEKDAYS.map((w, idx) => (
+          <View key={idx} style={styles.weekdayCell}>
+            <Text style={[styles.weekdayText, (idx === 5 || idx === 6) && styles.weekendHeader]}>
+              {w}
             </Text>
           </View>
         ))}
       </View>
 
-      {/* 5. Grid de días del calendario */}
+      {/* 4. Grid de Días */}
       <View style={styles.grid}>
         {cells.map((cell) => {
           if (cell.type === 'empty') {
@@ -417,76 +192,48 @@ export default function CalendarView({
           const hasSpecial = rec && rec.isSpecialPay;
           const hasOvertime = rec && rec.overtimeHours > 0;
           const hasWeekendMark = rec && rec.isWeekend && cell.isWeekend;
-          const hasNotes = rec && rec.notes && rec.notes.trim().length > 0;
           const isToday = cell.day === currentDay;
+
+          // Color de fondo y borde según la actividad principal
+          let cellStyle = styles.dayCellDefault;
+          if (hasFullGuardia) cellStyle = styles.dayCellFullGuard;
+          else if (hasGuardia) cellStyle = styles.dayCellGuard;
+          else if (hasSpecial) cellStyle = styles.dayCellSpecial;
+          else if (hasWeekendMark) cellStyle = styles.dayCellWeekendMark;
+          else if (cell.isWeekend) cellStyle = styles.dayCellWeekend;
 
           return (
             <TouchableOpacity
               key={cell.key}
               style={[
                 styles.dayCell,
-                cell.isWeekend && styles.dayCellWeekend,
+                cellStyle,
                 isToday && styles.dayCellToday,
-                cell.hasActivity && styles.dayCellActive,
               ]}
               onPress={() => handleDayPress(cell.day)}
               onLongPress={() => handleDayLongPress(cell.day)}
-              activeOpacity={0.55}
+              activeOpacity={0.6}
               delayPressIn={0}
-              delayLongPress={240}
+              delayLongPress={220}
             >
-              {/* Encabezado del día: Número y badges informativos */}
-              <View style={styles.dayHeader}>
-                <Text
-                  style={[
-                    styles.dayNumber,
-                    isToday && styles.dayNumberToday,
-                    cell.hasActivity && styles.dayNumberActive,
-                  ]}
-                >
-                  {cell.day}
-                </Text>
+              <Text style={[styles.dayNumber, cell.hasActivity && styles.dayNumberActive]}>
+                {cell.day}
+              </Text>
 
-                <View style={styles.headerRightIndicators}>
-                  {hasNotes && (
-                    <View style={styles.noteIndicatorDot} />
-                  )}
-                  {isToday && <View style={styles.todayDot} />}
-                </View>
-              </View>
-
-              {/* Insignias de actividades aplicadas */}
-              <View style={styles.badgesContainer}>
-                {hasGuardia && (
-                  <View style={[styles.miniBadge, { backgroundColor: COLORS.guardiaBg }]}>
-                    <Text style={[styles.miniBadgeText, { color: COLORS.guardia }]}>G</Text>
-                  </View>
-                )}
-
-                {hasFullGuardia && (
-                  <View style={[styles.miniBadge, { backgroundColor: COLORS.guardiaCompletaBg }]}>
-                    <Text style={[styles.miniBadgeText, { color: COLORS.guardiaCompleta }]}>GC</Text>
-                  </View>
-                )}
-
-                {hasSpecial && (
-                  <View style={[styles.miniBadge, { backgroundColor: COLORS.specialBg }]}>
-                    <Text style={[styles.miniBadgeText, { color: COLORS.special }]}>GE</Text>
-                  </View>
-                )}
+              {/* Insignia visual grande y clara */}
+              <View style={styles.badgeBox}>
+                {hasFullGuardia ? (
+                  <Text style={styles.iconBadgeText}>⭐</Text>
+                ) : hasGuardia ? (
+                  <Text style={styles.iconBadgeText}>🛡️</Text>
+                ) : hasSpecial ? (
+                  <Text style={styles.iconBadgeText}>✨</Text>
+                ) : hasWeekendMark ? (
+                  <Text style={styles.iconBadgeText}>🏖️</Text>
+                ) : null}
 
                 {hasOvertime && (
-                  <View style={[styles.miniBadge, { backgroundColor: COLORS.overtimeBg }]}>
-                    <Text style={[styles.miniBadgeText, { color: COLORS.overtime }]}>
-                      +{rec.overtimeHours}h
-                    </Text>
-                  </View>
-                )}
-
-                {hasWeekendMark && (
-                  <View style={[styles.miniBadge, { backgroundColor: COLORS.weekendBg }]}>
-                    <Text style={[styles.miniBadgeText, { color: COLORS.weekend }]}>F</Text>
-                  </View>
+                  <Text style={styles.overtimeText}>+{rec.overtimeHours}h</Text>
                 )}
               </View>
             </TouchableOpacity>
@@ -494,239 +241,102 @@ export default function CalendarView({
         })}
       </View>
 
-      {/* 6. Paleta de Pinceles Inferior ("Modo Pincel" - Don't Make Me Think) */}
-      <View style={styles.brushPaletteContainer}>
-        <View style={styles.paletteHeader}>
-          <Text style={styles.paletteTitle}>HERRAMIENTAS DE MARCADO RÁPIDO</Text>
-          <Text style={styles.paletteHint}>1 toque aplica al día</Text>
-        </View>
+      {/* 5. Barra de Herramientas (Grandes, amigables e intuitivas) */}
+      <View style={styles.paletteContainer}>
+        <Text style={styles.paletteTitle}>ELIGE QUÉ QUIERES MARCAR (Y TOCA LOS DÍAS):</Text>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.paletteScroll}
         >
-          {/* Herramienta 1: Guardia Regular */}
+          {/* 1. Guardia Regular */}
           <TouchableOpacity
             style={[
-              styles.toolBtn,
-              activeBrush === 'guardia' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.guardia, backgroundColor: COLORS.guardiaBg },
-              ],
+              styles.brushBtn,
+              activeBrush === 'guardia' && styles.brushBtnActiveGuardia,
             ]}
             onPress={() => {
               try { Vibration.vibrate(15); } catch (e) {}
               setActiveBrush('guardia');
             }}
             activeOpacity={0.7}
-            delayPressIn={0}
           >
-            <MaterialCommunityIcons
-              name="shield"
-              size={18}
-              color={activeBrush === 'guardia' ? COLORS.guardia : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'guardia' && { color: COLORS.guardia, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.brushEmoji}>🛡️</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'guardia' && styles.brushLabelActive]}>
               {settings?.guardDutyName || 'Regular'}
             </Text>
           </TouchableOpacity>
 
-          {/* Herramienta 2: Guardia Completa */}
+          {/* 2. Guardia Completa */}
           <TouchableOpacity
             style={[
-              styles.toolBtn,
-              activeBrush === 'guardiaCompleta' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.guardiaCompleta, backgroundColor: COLORS.guardiaCompletaBg },
-              ],
+              styles.brushBtn,
+              activeBrush === 'guardiaCompleta' && styles.brushBtnActiveCompleta,
             ]}
             onPress={() => {
               try { Vibration.vibrate(15); } catch (e) {}
               setActiveBrush('guardiaCompleta');
             }}
             activeOpacity={0.7}
-            delayPressIn={0}
           >
-            <MaterialCommunityIcons
-              name="shield-star"
-              size={18}
-              color={activeBrush === 'guardiaCompleta' ? COLORS.guardiaCompleta : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'guardiaCompleta' && { color: COLORS.guardiaCompleta, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.brushEmoji}>⭐</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'guardiaCompleta' && styles.brushLabelActive]}>
               {settings?.fullGuardDutyName || 'Completa'}
             </Text>
           </TouchableOpacity>
 
-          {/* Herramienta 3: Guardia Especial */}
+          {/* 3. Fin de Semana */}
           <TouchableOpacity
             style={[
-              styles.toolBtn,
-              activeBrush === 'special' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.special, backgroundColor: COLORS.specialBg },
-              ],
-            ]}
-            onPress={() => {
-              try { Vibration.vibrate(15); } catch (e) {}
-              setActiveBrush('special');
-            }}
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <MaterialCommunityIcons
-              name="star"
-              size={18}
-              color={activeBrush === 'special' ? COLORS.special : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'special' && { color: COLORS.special, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
-              {settings?.specialPayName || 'Especial'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Herramienta 4: Fin de Semana */}
-          <TouchableOpacity
-            style={[
-              styles.toolBtn,
-              activeBrush === 'weekend' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.weekend, backgroundColor: COLORS.weekendBg },
-              ],
+              styles.brushBtn,
+              activeBrush === 'weekend' && styles.brushBtnActiveWeekend,
             ]}
             onPress={() => {
               try { Vibration.vibrate(15); } catch (e) {}
               setActiveBrush('weekend');
             }}
             activeOpacity={0.7}
-            delayPressIn={0}
           >
-            <MaterialCommunityIcons
-              name="beach"
-              size={18}
-              color={activeBrush === 'weekend' ? COLORS.weekend : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'weekend' && { color: COLORS.weekend, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
-              {settings?.weekendName || 'Fin de sem.'}
+            <Text style={styles.brushEmoji}>🏖️</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'weekend' && styles.brushLabelActive]}>
+              {settings?.weekendName || 'Finde'}
             </Text>
           </TouchableOpacity>
 
-          {/* Herramienta 5: Horas Extras */}
+          {/* 4. Horas Extras */}
           <TouchableOpacity
             style={[
-              styles.toolBtn,
-              activeBrush === 'overtime' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.overtime, backgroundColor: COLORS.overtimeBg },
-              ],
+              styles.brushBtn,
+              activeBrush === 'overtime' && styles.brushBtnActiveOvertime,
             ]}
             onPress={() => {
               try { Vibration.vibrate(15); } catch (e) {}
               setActiveBrush('overtime');
             }}
             activeOpacity={0.7}
-            delayPressIn={0}
           >
-            <MaterialCommunityIcons
-              name="clock-plus-outline"
-              size={18}
-              color={activeBrush === 'overtime' ? COLORS.overtime : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'overtime' && { color: COLORS.overtime, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.brushEmoji}>⏱️</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'overtime' && styles.brushLabelActive]}>
               +1h Extra
             </Text>
           </TouchableOpacity>
 
-          {/* Herramienta 6: Borrador */}
+          {/* 5. Borrar */}
           <TouchableOpacity
             style={[
-              styles.toolBtn,
-              activeBrush === 'eraser' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.danger, backgroundColor: COLORS.dangerBg },
-              ],
+              styles.brushBtn,
+              activeBrush === 'eraser' && styles.brushBtnActiveEraser,
             ]}
             onPress={() => {
               try { Vibration.vibrate(15); } catch (e) {}
               setActiveBrush('eraser');
             }}
             activeOpacity={0.7}
-            delayPressIn={0}
           >
-            <MaterialCommunityIcons
-              name="eraser"
-              size={18}
-              color={activeBrush === 'eraser' ? COLORS.danger : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'eraser' && { color: COLORS.danger, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.brushEmoji}>🧹</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'eraser' && styles.brushLabelActive]}>
               Borrar
-            </Text>
-          </TouchableOpacity>
-
-          {/* Herramienta 7: Detalle / Notas */}
-          <TouchableOpacity
-            style={[
-              styles.toolBtn,
-              activeBrush === 'inspect' && [
-                styles.toolBtnActive,
-                { borderColor: COLORS.primaryLight, backgroundColor: COLORS.primaryBg },
-              ],
-            ]}
-            onPress={() => {
-              try { Vibration.vibrate(15); } catch (e) {}
-              setActiveBrush('inspect');
-            }}
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <MaterialCommunityIcons
-              name="card-text-outline"
-              size={18}
-              color={activeBrush === 'inspect' ? COLORS.primaryLight : COLORS.textSecondary}
-            />
-            <Text
-              style={[
-                styles.toolBtnText,
-                activeBrush === 'inspect' && { color: COLORS.primaryLight, fontWeight: '900' },
-              ]}
-              numberOfLines={1}
-            >
-              Detalle
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -737,111 +347,68 @@ export default function CalendarView({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surfaceCard,
-    borderRadius: 20,
+    backgroundColor: '#111827',
+    borderRadius: 22,
     marginHorizontal: 16,
     marginVertical: 8,
     padding: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  navRow: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  navBtn: {
-    padding: 8,
-    backgroundColor: COLORS.surfaceLight,
+  arrowBtn: {
+    padding: 6,
+    backgroundColor: '#1E293B',
     borderRadius: 12,
   },
-  navTitleContainer: {
-    alignItems: 'center',
-  },
-  monthTitle: {
+  headerTitle: {
     fontSize: 17,
     fontWeight: '900',
-    color: COLORS.text,
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
-  periodIndicator: {
-    fontSize: 11,
-    color: COLORS.primaryLight,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  smartPresetsRow: {
-    marginBottom: 10,
-  },
-  smartPresetsScroll: {
+  presetRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingVertical: 2,
+    marginBottom: 12,
   },
-  presetPill: {
+  presetBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     gap: 6,
   },
-  presetPillWeekend: {
-    borderColor: 'rgba(244, 114, 182, 0.4)',
+  presetWeekend: {
     backgroundColor: 'rgba(244, 114, 182, 0.08)',
+    borderColor: 'rgba(244, 114, 182, 0.25)',
   },
-  presetPillDanger: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  presetWorkweek: {
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    borderColor: 'rgba(99, 102, 241, 0.25)',
   },
-  presetPillText: {
+  presetEmoji: {
+    fontSize: 14,
+  },
+  presetText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  brushBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
-  brushBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  brushIndicatorIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  brushBannerLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    letterSpacing: 0.5,
-  },
-  brushBannerSub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 1,
+    fontWeight: '800',
   },
   weekdaysRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
     paddingBottom: 6,
     marginBottom: 6,
   },
@@ -850,12 +417,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekdayText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#64748B',
   },
-  weekendTextHeader: {
-    color: COLORS.weekend,
+  weekendHeader: {
+    color: '#F472B6',
   },
   grid: {
     flexDirection: 'row',
@@ -863,127 +430,126 @@ const styles = StyleSheet.create({
   },
   emptyCell: {
     width: '14.28%',
-    height: 56,
+    height: 52,
   },
   dayCell: {
     width: '14.28%',
-    height: 56,
+    height: 52,
     padding: 3,
-    borderWidth: 0.5,
-    borderColor: 'rgba(51, 65, 85, 0.45)',
-    borderRadius: 8,
-    backgroundColor: 'rgba(30, 41, 59, 0.35)',
-    justifyContent: 'space-between',
-  },
-  dayCellWeekend: {
-    backgroundColor: 'rgba(244, 114, 182, 0.05)',
-  },
-  dayCellToday: {
-    borderColor: COLORS.indigo,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-  },
-  dayCellActive: {
-    borderColor: COLORS.primaryLight,
     borderWidth: 1,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-  },
-  dayHeader: {
-    flexDirection: 'row',
+    borderRadius: 10,
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  dayCellDefault: {
+    backgroundColor: 'rgba(30, 41, 59, 0.4)',
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  dayCellWeekend: {
+    backgroundColor: 'rgba(244, 114, 182, 0.04)',
+    borderColor: 'rgba(244, 114, 182, 0.15)',
+  },
+  dayCellGuard: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38BDF8',
+  },
+  dayCellFullGuard: {
+    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    borderColor: '#A855F7',
+  },
+  dayCellSpecial: {
+    backgroundColor: 'rgba(251, 146, 60, 0.18)',
+    borderColor: '#FB923C',
+  },
+  dayCellWeekendMark: {
+    backgroundColor: 'rgba(244, 114, 182, 0.18)',
+    borderColor: '#F472B6',
+  },
+  dayCellToday: {
+    borderColor: '#6366F1',
+    borderWidth: 2,
   },
   dayNumber: {
     fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  dayNumberToday: {
-    color: COLORS.indigoLight,
-    fontWeight: '900',
+    fontWeight: '800',
+    color: '#94A3B8',
   },
   dayNumberActive: {
-    color: COLORS.primaryLight,
+    color: '#FFFFFF',
     fontWeight: '900',
   },
-  headerRightIndicators: {
-    flexDirection: 'row',
+  badgeBox: {
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'center',
   },
-  todayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: COLORS.indigoLight,
+  iconBadgeText: {
+    fontSize: 14,
+    lineHeight: 16,
   },
-  noteIndicatorDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: COLORS.overtime,
-  },
-  badgesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 2,
-    alignItems: 'flex-end',
-  },
-  miniBadge: {
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  miniBadgeText: {
+  overtimeText: {
     fontSize: 9,
     fontWeight: '900',
+    color: '#FBBF24',
   },
-  brushPaletteContainer: {
-    marginTop: 12,
+  paletteContainer: {
+    marginTop: 14,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  paletteHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 2,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   paletteTitle: {
     fontSize: 10,
     fontWeight: '900',
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-  },
-  paletteHint: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.primaryLight,
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   paletteScroll: {
     flexDirection: 'row',
     gap: 8,
     paddingVertical: 2,
   },
-  toolBtn: {
+  brushBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     gap: 6,
   },
-  toolBtnActive: {
-    borderWidth: 1.5,
+  brushBtnActiveGuardia: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: '#38BDF8',
   },
-  toolBtnText: {
+  brushBtnActiveCompleta: {
+    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    borderColor: '#A855F7',
+  },
+  brushBtnActiveWeekend: {
+    backgroundColor: 'rgba(244, 114, 182, 0.18)',
+    borderColor: '#F472B6',
+  },
+  brushBtnActiveOvertime: {
+    backgroundColor: 'rgba(251, 191, 36, 0.18)',
+    borderColor: '#FBBF24',
+  },
+  brushBtnActiveEraser: {
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    borderColor: '#EF4444',
+  },
+  brushEmoji: {
+    fontSize: 16,
+  },
+  brushLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
+    fontWeight: '800',
+    color: '#94A3B8',
+  },
+  brushLabelActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 });

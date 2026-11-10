@@ -309,7 +309,7 @@ export default function App() {
               activeTab === 'records' && { color: COLORS.indigoLight, fontWeight: '700' },
             ]}
           >
-            Historial
+            Resumen
           </Text>
         </TouchableOpacity>
 
@@ -329,7 +329,7 @@ export default function App() {
               activeTab === 'settings' && styles.navItemTextActive,
             ]}
           >
-            Configuración
+            Ajustes
           </Text>
         </TouchableOpacity>
       </View>

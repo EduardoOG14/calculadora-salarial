@@ -1,11 +1,11 @@
 export const COLORS = {
-  background: '#0B0F19',
-  surface: '#161F30',
-  surfaceCard: '#1E293B',
-  surfaceLight: '#26334D',
-  border: '#334155',
-  borderLight: '#475569',
-  
+  background: '#090D16',
+  surface: '#111827',
+  surfaceCard: '#111827',
+  surfaceLight: '#1E293B',
+  border: 'rgba(255, 255, 255, 0.08)',
+  borderLight: 'rgba(255, 255, 255, 0.15)',
+
   primary: '#10B981',       // Verde esmeralda (Dinero / Total)
   primaryLight: '#34D399',
   primaryDark: '#059669',
@@ -35,7 +35,7 @@ export const COLORS = {
   specialDark: '#EA580C',
   specialBg: 'rgba(251, 146, 60, 0.15)',
 
-  text: '#F8FAFC',
+  text: '#FFFFFF',
   textSecondary: '#94A3B8',
   textMuted: '#64748B',
 
