@@ -286,7 +286,25 @@ export default function CalendarView({
             </Text>
           </TouchableOpacity>
 
-          {/* 3. Fin de Semana */}
+          {/* 3. Guardia Especial */}
+          <TouchableOpacity
+            style={[
+              styles.brushBtn,
+              activeBrush === 'special' && styles.brushBtnActiveSpecial,
+            ]}
+            onPress={() => {
+              try { Vibration.vibrate(15); } catch (e) {}
+              setActiveBrush('special');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.brushEmoji}>✨</Text>
+            <Text style={[styles.brushLabel, activeBrush === 'special' && styles.brushLabelActive]}>
+              {settings?.specialPayName || 'Especial'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* 4. Fin de Semana */}
           <TouchableOpacity
             style={[
               styles.brushBtn,
@@ -527,6 +545,10 @@ const styles = StyleSheet.create({
   brushBtnActiveCompleta: {
     backgroundColor: 'rgba(168, 85, 247, 0.18)',
     borderColor: '#A855F7',
+  },
+  brushBtnActiveSpecial: {
+    backgroundColor: 'rgba(251, 146, 60, 0.18)',
+    borderColor: '#FB923C',
   },
   brushBtnActiveWeekend: {
     backgroundColor: 'rgba(244, 114, 182, 0.18)',

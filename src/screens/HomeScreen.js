@@ -65,10 +65,15 @@ export default function HomeScreen({
     } else if (brushType === 'guardiaCompleta') {
       updated.isGuardiaCompleta = !current.isGuardiaCompleta;
     } else if (brushType === 'special') {
-      const nextSpecial = !current.isSpecialPay;
-      updated.isSpecialPay = nextSpecial;
-      if (nextSpecial && !updated.specialPayAmount) {
-        updated.specialPayAmount = Number(settings.specialPayRate) || 50;
+      if (current.isSpecialPay) {
+        updated.isSpecialPay = false;
+        updated.specialPayAmount = undefined;
+        onSaveDay(year, month, day, updated);
+      } else {
+        // "Siempre preguntar": abre el modal de día directamente para ingresar el monto específico
+        setSelectedDay(day);
+        setModalVisible(true);
+        return;
       }
     } else if (brushType === 'weekend') {
       updated.isWeekend = !current.isWeekend;

@@ -34,7 +34,6 @@ export default function SettingsScreen({
   const [guardDutyRate, setGuardDutyRate] = useState(String(settings.guardDutyRate ?? 50));
   const [fullGuardDutyRate, setFullGuardDutyRate] = useState(String(settings.fullGuardDutyRate ?? 80));
   const [weekendRate, setWeekendRate] = useState(String(settings.weekendRate ?? 40));
-  const [specialPayRate, setSpecialPayRate] = useState(String(settings.specialPayRate ?? 50));
   const [manualBcvRate, setManualBcvRate] = useState(String(bcvData?.rate ?? 887.30));
 
   // Nombres editables de las guardias
@@ -93,7 +92,7 @@ export default function SettingsScreen({
       guardDutyRate: Math.max(0, parseFloat(guardDutyRate) || 0),
       fullGuardDutyRate: Math.max(0, parseFloat(fullGuardDutyRate) || 0),
       weekendRate: Math.max(0, parseFloat(weekendRate) || 0),
-      specialPayRate: Math.max(0, parseFloat(specialPayRate) || 0),
+      specialPayRate: 'ask', // Siempre preguntar por el monto en cada guardia especial
       guardDutyName: guardDutyName.trim() || DEFAULT_SETTINGS.guardDutyName,
       fullGuardDutyName: fullGuardDutyName.trim() || DEFAULT_SETTINGS.fullGuardDutyName,
       specialPayName: specialPayName.trim() || DEFAULT_SETTINGS.specialPayName,
@@ -150,6 +149,8 @@ export default function SettingsScreen({
     }
   };
 
+  const day15Percent = parseFloat(Math.max(0, 100 - (parseFloat(String(firstCutPercent).replace(',', '.')) || 0)).toFixed(1));
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -170,7 +171,7 @@ export default function SettingsScreen({
           </View>
         )}
 
-        {/* 1. Sueldo Base Mensual */}
+        {/* 1. Sueldo Base Mensual y Porcentaje del Día 1 */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>💰 TU SUELDO BASE MENSUAL</Text>
 
@@ -187,7 +188,28 @@ export default function SettingsScreen({
             <Text style={styles.monthUnit}>/ mes</Text>
           </View>
 
-          <Text style={styles.quincenaLabel}>División de quincenas (Día 1 / Día 15):</Text>
+          {/* Campo editable de Porcentaje del Día 1 */}
+          <Text style={styles.quincenaLabel}>% del Sueldo Base a cobrar el 1ro de cada mes:</Text>
+          <View style={styles.percentInputRow}>
+            <TextInput
+              style={styles.percentInput}
+              keyboardType="decimal-pad"
+              value={firstCutPercent}
+              onChangeText={(val) => {
+                const clean = val.replace(/[^0-9.,]/g, '');
+                setFirstCutPercent(clean);
+              }}
+              placeholder="50"
+              placeholderTextColor="#64748B"
+              maxLength={5}
+            />
+            <Text style={styles.percentSymbol}>%</Text>
+            <Text style={styles.percentSubText}>
+              (El día 15 cobrará el {day15Percent}% restante)
+            </Text>
+          </View>
+
+          {/* Chips de selección rápida */}
           <View style={styles.chipsRow}>
             {[
               { label: '50% / 50%', val: '50' },
@@ -364,7 +386,7 @@ export default function SettingsScreen({
             </View>
           </View>
 
-          {/* Tarifa 5: Guardia Especial */}
+          {/* Tarifa 5: Guardia Especial ("Siempre preguntar", sin input) */}
           <View style={[styles.rateRow, { borderBottomWidth: 0 }]}>
             <View style={styles.rateNameCol}>
               <TouchableOpacity
@@ -384,19 +406,12 @@ export default function SettingsScreen({
                 </Text>
                 <MaterialCommunityIcons name="pencil" size={14} color="#FB923C" />
               </TouchableOpacity>
-              <Text style={styles.rateSubText}>Monto base especial</Text>
+              <Text style={styles.rateSubText}>Monto variable por cada turno</Text>
             </View>
 
-            <View style={styles.rateInputBox}>
-              <Text style={styles.rateCurrency}>$</Text>
-              <TextInput
-                style={styles.rateInput}
-                keyboardType="numeric"
-                value={specialPayRate}
-                onChangeText={setSpecialPayRate}
-                placeholder="50"
-                placeholderTextColor="#64748B"
-              />
+            <View style={styles.alwaysAskPill}>
+              <MaterialCommunityIcons name="help-circle-outline" size={14} color="#FB923C" />
+              <Text style={styles.alwaysAskText}>Siempre preguntar</Text>
             </View>
           </View>
         </View>
@@ -640,9 +655,38 @@ const styles = StyleSheet.create({
   quincenaLabel: {
     fontSize: 11,
     color: '#94A3B8',
-    fontWeight: '600',
-    marginTop: 12,
+    fontWeight: '700',
+    marginTop: 14,
     marginBottom: 6,
+  },
+  percentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    marginBottom: 10,
+  },
+  percentInput: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#818CF8',
+    minWidth: 44,
+  },
+  percentSymbol: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#818CF8',
+    marginRight: 8,
+  },
+  percentSubText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+    flex: 1,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -717,6 +761,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     minWidth: 40,
+  },
+  alwaysAskPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(251, 146, 60, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 146, 60, 0.35)',
+    gap: 4,
+  },
+  alwaysAskText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FB923C',
   },
   bcvRow: {
     flexDirection: 'row',
