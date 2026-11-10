@@ -241,6 +241,7 @@ export default function App() {
             onNextMonth={handleNextMonth}
             onSaveDay={handleSaveDay}
             onSaveMultipleDays={handleSaveMultipleDays}
+            onClearMonth={handleClearMonth}
             onSaveSettings={handleSaveSettings}
           />
         )}
@@ -253,6 +254,7 @@ export default function App() {
             records={records}
             bcvRate={bcvData.rate}
             onClearMonth={handleClearMonth}
+            onSaveDay={handleSaveDay}
             onSelectDay={handleSelectDayFromList}
           />
         )}

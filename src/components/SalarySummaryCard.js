@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { COLORS } from '../constants/theme';
 import { formatUSD, formatVES } from '../utils/calculator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,22 +27,22 @@ export default function SalarySummaryCard({
     baseSalarySecondCut = 0,
     firstCutTotal = 0,
     secondCutTotal = 0,
-    totalOvertimeHours,
-    overtimeRate,
-    overtimeTotalPay,
-    totalGuardDays,
-    guardRate,
-    guardTotalPay,
-    totalFullGuardDays,
-    fullGuardRate,
-    fullGuardTotalPay,
-    totalWeekendDays,
-    weekendRate,
-    weekendTotalPay,
-    totalSpecialDays,
-    specialTotalPay,
-    extrasTotalPay,
-    grandTotal,
+    totalOvertimeHours = 0,
+    overtimeRate = 0,
+    overtimeTotalPay = 0,
+    totalGuardDays = 0,
+    guardRate = 0,
+    guardTotalPay = 0,
+    totalFullGuardDays = 0,
+    fullGuardRate = 0,
+    fullGuardTotalPay = 0,
+    totalWeekendDays = 0,
+    weekendRate = 0,
+    weekendTotalPay = 0,
+    totalSpecialDays = 0,
+    specialTotalPay = 0,
+    extrasTotalPay = 0,
+    grandTotal = 0,
   } = calculation;
 
   const firstCutVES = bcvRate > 0 ? firstCutTotal * bcvRate : 0;
@@ -45,248 +51,188 @@ export default function SalarySummaryCard({
 
   return (
     <View style={styles.card}>
-      {/* Encabezado */}
+      {/* 1. Encabezado con Período y Tasa Oficial BCV */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.headerPeriod}>{periodName.toUpperCase()}</Text>
-          <Text style={styles.headerTitle}>Cortes Quincenales (1 y 15)</Text>
+          <Text style={styles.periodText}>{periodName.toUpperCase()}</Text>
+          <Text style={styles.headerSubtitle}>Cortes Quincenales (1 y 15)</Text>
         </View>
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>USD $</Text>
-          </View>
-          {bcvRate > 0 && (
-            <View style={[styles.badge, styles.badgeVES]}>
-              <Text style={styles.badgeTextVES}>Bs. BCV</Text>
-            </View>
-          )}
-        </View>
+
+        {bcvRate > 0 && (
+          <TouchableOpacity
+            style={styles.bcvBadge}
+            onPress={onRefreshBcv}
+            disabled={bcvLoading}
+            activeOpacity={0.7}
+          >
+            <View style={styles.bcvDot} />
+            <Text style={styles.bcvText}>
+              BCV: {bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs/$
+            </Text>
+            {bcvLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primaryLight} style={{ marginLeft: 4 }} />
+            ) : (
+              <MaterialCommunityIcons name="refresh" size={13} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Tarjetas de Cortes 1 y 15 */}
-      <View style={styles.cutsContainer}>
+      {/* 2. Tarjetas de Cortes 1 y 15 (Directo a la vista) */}
+      <View style={styles.cutsRow}>
         {/* CORTE DÍA 1 */}
-        <View style={styles.cutCard}>
-          <View style={styles.cutHeaderRow}>
-            <View style={[styles.cutBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-              <MaterialCommunityIcons name="calendar-today" size={12} color={COLORS.primaryLight} />
-              <Text style={[styles.cutBadgeText, { color: COLORS.primaryLight }]}>DÍA 1</Text>
+        <View style={[styles.cutBox, styles.cutBoxFirst]}>
+          <View style={styles.cutBadgeRow}>
+            <View style={[styles.cutPill, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+              <MaterialCommunityIcons name="calendar-check" size={12} color={COLORS.primaryLight} />
+              <Text style={[styles.cutPillText, { color: COLORS.primaryLight }]}>DÍA 1</Text>
             </View>
-            <Text style={styles.cutSubTitle}>{firstCutPercent}% Base + Extras</Text>
+            <Text style={styles.cutPercentText}>{firstCutPercent}% + Extras</Text>
           </View>
 
-          <Text style={styles.cutAmountFirst}>{formatUSD(firstCutTotal)}</Text>
-
+          <Text style={styles.cutAmountUSD}>{formatUSD(firstCutTotal)}</Text>
           {bcvRate > 0 && (
-            <Text style={styles.cutAmountVES}>
-              ≈ {formatVES(firstCutVES)}
-            </Text>
+            <Text style={styles.cutAmountVES}>≈ {formatVES(firstCutVES)}</Text>
           )}
 
-          <View style={styles.cutDetailsRow}>
-            <Text style={styles.cutDetailItem}>
-              Base: {formatUSD(baseSalaryFirstCut)}
-            </Text>
-            <Text style={[styles.cutDetailItem, { color: COLORS.primaryLight, fontWeight: '700' }]}>
-              Extras: +{formatUSD(extrasTotalPay)}
-            </Text>
+          <View style={styles.cutBreakdownMini}>
+            <Text style={styles.cutBreakdownText}>Base: {formatUSD(baseSalaryFirstCut)}</Text>
+            {extrasTotalPay > 0 && (
+              <Text style={[styles.cutBreakdownText, { color: COLORS.primaryLight, fontWeight: '700' }]}>
+                Extras: +{formatUSD(extrasTotalPay)}
+              </Text>
+            )}
           </View>
         </View>
 
         {/* CORTE DÍA 15 */}
-        <View style={styles.cutCard}>
-          <View style={styles.cutHeaderRow}>
-            <View style={[styles.cutBadge, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
+        <View style={[styles.cutBox, styles.cutBoxSecond]}>
+          <View style={styles.cutBadgeRow}>
+            <View style={[styles.cutPill, { backgroundColor: 'rgba(99, 102, 241, 0.2)' }]}>
               <MaterialCommunityIcons name="calendar-clock" size={12} color={COLORS.indigoLight} />
-              <Text style={[styles.cutBadgeText, { color: COLORS.indigoLight }]}>DÍA 15</Text>
+              <Text style={[styles.cutPillText, { color: COLORS.indigoLight }]}>DÍA 15</Text>
             </View>
-            <Text style={styles.cutSubTitle}>{secondCutPercent}% Base restante</Text>
+            <Text style={styles.cutPercentText}>{secondCutPercent}% Base</Text>
           </View>
 
-          <Text style={styles.cutAmountSecond}>{formatUSD(secondCutTotal)}</Text>
-
+          <Text style={[styles.cutAmountUSD, { color: COLORS.indigoLight }]}>
+            {formatUSD(secondCutTotal)}
+          </Text>
           {bcvRate > 0 && (
-            <Text style={styles.cutAmountVES}>
-              ≈ {formatVES(secondCutVES)}
-            </Text>
+            <Text style={styles.cutAmountVES}>≈ {formatVES(secondCutVES)}</Text>
           )}
 
-          <View style={styles.cutDetailsRow}>
-            <Text style={styles.cutDetailItem}>
-              Base: {formatUSD(baseSalarySecondCut)}
-            </Text>
-            <Text style={[styles.cutDetailItem, { color: COLORS.textMuted }]}>
-              Sin extras
+          <View style={styles.cutBreakdownMini}>
+            <Text style={styles.cutBreakdownText}>Base: {formatUSD(baseSalarySecondCut)}</Text>
+            <Text style={[styles.cutBreakdownText, { color: COLORS.textMuted }]}>
+              (Sin extras)
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Barra de Total General del Mes y Tasa BCV */}
-      <View style={styles.monthTotalBar}>
+      {/* 3. Barra Destacada de Total Acumulado del Mes */}
+      <View style={styles.totalMonthBanner}>
         <View>
-          <Text style={styles.monthTotalLabel}>TOTAL ACUMULADO DEL MES</Text>
-          <Text style={styles.monthTotalAmount}>{formatUSD(grandTotal)}</Text>
+          <Text style={styles.totalMonthLabel}>TOTAL ESTIMADO DEL MES</Text>
+          <Text style={styles.totalMonthAmount}>{formatUSD(grandTotal)}</Text>
         </View>
 
         {bcvRate > 0 && (
-          <View style={styles.monthTotalRight}>
-            <View style={styles.bcvFlagRow}>
-              <Text style={styles.monthTotalVES}>{formatVES(grandTotalVES)}</Text>
-              {onRefreshBcv && (
-                <TouchableOpacity
-                  style={styles.bcvRefreshBtn}
-                  onPress={onRefreshBcv}
-                  disabled={bcvLoading}
-                  activeOpacity={0.7}
-                >
-                  {bcvLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primaryLight} />
-                  ) : (
-                    <MaterialCommunityIcons name="refresh" size={13} color={COLORS.textSecondary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-            <Text style={styles.bcvRateInline}>Tasa BCV: {formatVES(bcvRate)}/USD</Text>
+          <View style={styles.totalMonthRight}>
+            <Text style={styles.totalMonthVESLabel}>Equivalente BCV</Text>
+            <Text style={styles.totalMonthVES}>{formatVES(grandTotalVES)}</Text>
           </View>
         )}
       </View>
 
-      {/* Resumen rápido de extras */}
-      <View style={styles.quickStatsRow}>
-        <View style={styles.quickStatItem}>
-          <Text style={styles.quickStatLabel}>Base Total</Text>
-          <Text style={styles.quickStatValue}>{formatUSD(baseSalary)}</Text>
-        </View>
-
-        <View style={styles.statDivider} />
-
-        <View style={styles.quickStatItem}>
-          <Text style={[styles.quickStatLabel, { color: COLORS.overtime }]}>
-            Extras ({totalOvertimeHours}h)
-          </Text>
-          <Text style={styles.quickStatValue}>{formatUSD(overtimeTotalPay)}</Text>
-        </View>
-
-        <View style={styles.statDivider} />
-
-        <View style={styles.quickStatItem}>
-          <Text style={[styles.quickStatLabel, { color: COLORS.guardia }]}>
-            Guardias ({totalGuardDays + totalFullGuardDays})
-          </Text>
-          <Text style={styles.quickStatValue}>{formatUSD(guardTotalPay + fullGuardTotalPay)}</Text>
-        </View>
-
-        <View style={styles.statDivider} />
-
-        <View style={styles.quickStatItem}>
-          <Text style={[styles.quickStatLabel, { color: COLORS.special }]}>
-            G. Especial ({totalSpecialDays})
-          </Text>
-          <Text style={styles.quickStatValue}>{formatUSD(specialTotalPay)}</Text>
-        </View>
-
-        <View style={styles.statDivider} />
-
-        <View style={styles.quickStatItem}>
-          <Text style={[styles.quickStatLabel, { color: COLORS.weekend }]}>
-            Finde ({totalWeekendDays})
-          </Text>
-          <Text style={styles.quickStatValue}>{formatUSD(weekendTotalPay)}</Text>
-        </View>
-      </View>
-
-      {/* Botón para ver u ocultar desglose detallado */}
+      {/* 4. Botón desplegable para ver desglose detallado */}
       <TouchableOpacity
-        style={styles.expandButton}
+        style={styles.expandToggleBtn}
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.7}
       >
-        <Text style={styles.expandButtonText}>
+        <Text style={styles.expandToggleText}>
           {expanded ? 'Ocultar desglose detallado' : 'Ver desglose detallado'}
         </Text>
         <MaterialCommunityIcons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color={COLORS.textSecondary}
+          color={COLORS.primaryLight}
         />
       </TouchableOpacity>
 
-      {/* Desglose Expandible */}
+      {/* 5. Desglose detallado colapsable */}
       {expanded && (
         <View style={styles.breakdownContainer}>
           <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="cash" size={16} color={COLORS.primary} />
-              <Text style={styles.breakdownLabel}> Salario Base Completo</Text>
-            </View>
-            <Text style={styles.breakdownValue}>{formatUSD(baseSalary)}</Text>
+            <Text style={styles.breakdownLabel}>Salario Base Total</Text>
+            <Text style={styles.breakdownVal}>{formatUSD(baseSalary)}</Text>
           </View>
 
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.overtime} />
-              <Text style={styles.breakdownLabel}>
-                {' '}{calculation.overtimeName || 'Horas extras'} ({totalOvertimeHours}h × {formatUSD(overtimeRate)})
-              </Text>
+          {totalGuardDays > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeftBadge}>
+                <View style={[styles.dot, { backgroundColor: COLORS.guardia }]} />
+                <Text style={styles.breakdownLabel}>
+                  Guardias Regulares ({totalGuardDays} × {formatUSD(guardRate)})
+                </Text>
+              </View>
+              <Text style={styles.breakdownVal}>+{formatUSD(guardTotalPay)}</Text>
             </View>
-            <Text style={[styles.breakdownValue, { color: COLORS.overtime }]}>
-              +{formatUSD(overtimeTotalPay)}
-            </Text>
-          </View>
+          )}
 
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="shield-outline" size={16} color={COLORS.guardia} />
-              <Text style={styles.breakdownLabel}>
-                {' '}{calculation.guardDutyName || 'Guardia regular'} ({totalGuardDays}d × {formatUSD(guardRate)})
-              </Text>
+          {totalFullGuardDays > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeftBadge}>
+                <View style={[styles.dot, { backgroundColor: COLORS.guardiaCompleta }]} />
+                <Text style={styles.breakdownLabel}>
+                  Guardias Completas ({totalFullGuardDays} × {formatUSD(fullGuardRate)})
+                </Text>
+              </View>
+              <Text style={styles.breakdownVal}>+{formatUSD(fullGuardTotalPay)}</Text>
             </View>
-            <Text style={[styles.breakdownValue, { color: COLORS.guardia }]}>
-              +{formatUSD(guardTotalPay)}
-            </Text>
-          </View>
+          )}
 
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="shield-star-outline" size={16} color={COLORS.guardiaCompleta} />
-              <Text style={styles.breakdownLabel}>
-                {' '}{calculation.fullGuardDutyName || 'Guardia completa'} ({totalFullGuardDays}d × {formatUSD(fullGuardRate)})
-              </Text>
+          {totalSpecialDays > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeftBadge}>
+                <View style={[styles.dot, { backgroundColor: COLORS.special }]} />
+                <Text style={styles.breakdownLabel}>
+                  Guardias Especiales ({totalSpecialDays} días)
+                </Text>
+              </View>
+              <Text style={styles.breakdownVal}>+{formatUSD(specialTotalPay)}</Text>
             </View>
-            <Text style={[styles.breakdownValue, { color: COLORS.guardiaCompleta }]}>
-              +{formatUSD(fullGuardTotalPay)}
-            </Text>
-          </View>
+          )}
 
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="beach" size={16} color={COLORS.weekend} />
-              <Text style={styles.breakdownLabel}>
-                {' '}{calculation.weekendName || 'Fines de semana'} ({totalWeekendDays}d × {formatUSD(weekendRate)})
-              </Text>
+          {totalWeekendDays > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeftBadge}>
+                <View style={[styles.dot, { backgroundColor: COLORS.weekend }]} />
+                <Text style={styles.breakdownLabel}>
+                  Fines de Semana ({totalWeekendDays} × {formatUSD(weekendRate)})
+                </Text>
+              </View>
+              <Text style={styles.breakdownVal}>+{formatUSD(weekendTotalPay)}</Text>
             </View>
-            <Text style={[styles.breakdownValue, { color: COLORS.weekend }]}>
-              +{formatUSD(weekendTotalPay)}
-            </Text>
-          </View>
+          )}
 
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownLabelGroup}>
-              <MaterialCommunityIcons name="star-circle-outline" size={16} color={COLORS.special} />
-              <Text style={styles.breakdownLabel}>
-                {' '}{calculation.specialPayName || 'Guardia especial'} ({totalSpecialDays}d)
-              </Text>
+          {totalOvertimeHours > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeftBadge}>
+                <View style={[styles.dot, { backgroundColor: COLORS.overtime }]} />
+                <Text style={styles.breakdownLabel}>
+                  Horas Extras ({totalOvertimeHours}h × {formatUSD(overtimeRate)})
+                </Text>
+              </View>
+              <Text style={styles.breakdownVal}>+{formatUSD(overtimeTotalPay)}</Text>
             </View>
-            <Text style={[styles.breakdownValue, { color: COLORS.special }]}>
-              +{formatUSD(specialTotalPay)}
-            </Text>
-          </View>
+          )}
 
-          <View style={styles.breakdownTotalExtras}>
-            <Text style={styles.totalExtrasText}>Total Extras Ganados (Cobrados el día 1):</Text>
-            <Text style={styles.totalExtrasAmount}>+{formatUSD(extrasTotalPay)}</Text>
+          <View style={[styles.breakdownRow, styles.breakdownTotalRow]}>
+            <Text style={styles.breakdownTotalLabel}>Total Extras Acumuladas</Text>
+            <Text style={styles.breakdownTotalVal}>+{formatUSD(extrasTotalPay)}</Text>
           </View>
         </View>
       )}
@@ -299,261 +245,214 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceCard,
     borderRadius: 20,
     marginHorizontal: 16,
-    marginVertical: 6,
+    marginVertical: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  headerPeriod: {
-    color: COLORS.indigoLight,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  headerTitle: {
+  periodText: {
+    fontSize: 14,
+    fontWeight: '900',
     color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
     marginTop: 1,
   },
-  badgeRow: {
+  bcvBadge: {
     flexDirection: 'row',
-    gap: 6,
-  },
-  badge: {
-    backgroundColor: COLORS.primaryBg,
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.primaryDark,
+    borderColor: COLORS.border,
   },
-  badgeText: {
-    color: COLORS.primaryLight,
-    fontSize: 10,
+  bcvDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.primaryLight,
+    marginRight: 6,
+  },
+  bcvText: {
+    fontSize: 11,
     fontWeight: '700',
+    color: COLORS.text,
   },
-  badgeVES: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    borderColor: COLORS.indigo,
-  },
-  badgeTextVES: {
-    color: COLORS.indigoLight,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  cutsContainer: {
+  cutsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginVertical: 6,
+    marginBottom: 12,
   },
-  cutCard: {
+  cutBox: {
     flex: 1,
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    backgroundColor: COLORS.surface,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    justifyContent: 'space-between',
   },
-  cutHeaderRow: {
+  cutBoxFirst: {
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  cutBoxSecond: {
+    borderColor: 'rgba(99, 102, 241, 0.35)',
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
+  },
+  cutBadgeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  cutBadge: {
+  cutPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    gap: 3,
+    gap: 4,
   },
-  cutBadgeText: {
-    fontSize: 9,
+  cutPillText: {
+    fontSize: 10,
     fontWeight: '900',
   },
-  cutSubTitle: {
-    fontSize: 9,
+  cutPercentText: {
+    fontSize: 10,
     color: COLORS.textMuted,
     fontWeight: '600',
   },
-  cutAmountFirst: {
+  cutAmountUSD: {
     fontSize: 19,
     fontWeight: '900',
     color: COLORS.primaryLight,
-  },
-  cutAmountSecond: {
-    fontSize: 19,
-    fontWeight: '900',
-    color: COLORS.indigoLight,
+    letterSpacing: -0.5,
   },
   cutAmountVES: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#34D399',
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
     marginTop: 2,
   },
-  cutDetailsRow: {
+  cutBreakdownMini: {
     marginTop: 8,
     paddingTop: 6,
-    borderTopWidth: 0.5,
-    borderTopColor: 'rgba(51, 65, 85, 0.6)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
     gap: 2,
   },
-  cutDetailItem: {
-    fontSize: 9,
-    color: COLORS.textSecondary,
+  cutBreakdownText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
     fontWeight: '500',
   },
-  monthTotalBar: {
+  totalMonthBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginVertical: 6,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 14,
+    padding: 12,
   },
-  monthTotalLabel: {
+  totalMonthLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: COLORS.textSecondary,
+    color: COLORS.primaryLight,
     letterSpacing: 0.5,
   },
-  monthTotalAmount: {
-    fontSize: 18,
+  totalMonthAmount: {
+    fontSize: 22,
     fontWeight: '900',
     color: COLORS.text,
+    letterSpacing: -0.5,
+    marginTop: 2,
   },
-  monthTotalRight: {
+  totalMonthRight: {
     alignItems: 'flex-end',
   },
-  bcvFlagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  monthTotalVES: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#34D399',
-  },
-  bcvRefreshBtn: {
-    padding: 3,
-    backgroundColor: COLORS.surface,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  bcvRateInline: {
-    fontSize: 9,
-    color: COLORS.indigoLight,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  quickStatsRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginTop: 4,
-  },
-  quickStatItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  quickStatLabel: {
-    fontSize: 9,
+  totalMonthVESLabel: {
+    fontSize: 10,
     color: COLORS.textMuted,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  quickStatValue: {
+  totalMonthVES: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primaryLight,
+    marginTop: 2,
+  },
+  expandToggleBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+    marginTop: 8,
+    gap: 4,
+  },
+  expandToggleText: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.text,
-  },
-  statDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: COLORS.border,
-  },
-  expandButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    paddingVertical: 4,
-  },
-  expandButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '500',
-    marginRight: 4,
+    color: COLORS.primaryLight,
   },
   breakdownContainer: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+    gap: 8,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 3,
   },
-  breakdownLabelGroup: {
+  breakdownLeftBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   breakdownLabel: {
+    fontSize: 12,
     color: COLORS.textSecondary,
-    fontSize: 11,
+    fontWeight: '500',
   },
-  breakdownValue: {
+  breakdownVal: {
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.text,
   },
-  breakdownTotalExtras: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 6,
+  breakdownTotalRow: {
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    marginTop: 4,
   },
-  totalExtrasText: {
-    color: COLORS.text,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  totalExtrasAmount: {
-    color: COLORS.primaryLight,
+  breakdownTotalLabel: {
     fontSize: 12,
     fontWeight: '800',
+    color: COLORS.primaryLight,
+  },
+  breakdownTotalVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: COLORS.primaryLight,
   },
 });

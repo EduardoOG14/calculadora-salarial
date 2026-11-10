@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
 import { COLORS } from '../constants/theme';
 import {
   MONTH_NAMES,
-  FULL_DAY_NAMES,
   calculateSalary,
   formatUSD,
   formatVES,
   generateShareText,
 } from '../utils/calculator';
+import DayModal from '../components/DayModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function RecordsListScreen({
@@ -26,8 +26,10 @@ export default function RecordsListScreen({
   records,
   bcvRate = 0,
   onClearMonth,
+  onSaveDay,
   onSelectDay,
 }) {
+  const [editingDay, setEditingDay] = useState(null);
   const calculation = calculateSalary(settings, records, year, month);
   const items = calculation.dailyBreakdown;
 
@@ -46,56 +48,72 @@ export default function RecordsListScreen({
     );
   };
 
-  const handleShare = async () => {
+  const handleShareWhatsApp = async () => {
     try {
       const text = generateShareText(calculation, settings, year, month, bcvRate);
       await Share.share({
         message: text,
-        title: `Resumen de Actividades - ${MONTH_NAMES[month]} ${year}`,
+        title: `Resumen de Guardias - ${MONTH_NAMES[month]} ${year}`,
       });
     } catch (e) {
       console.log('Error compartiendo:', e);
     }
   };
 
+  const handleOpenDayModal = (day) => {
+    setEditingDay(day);
+  };
+
+  const handleCloseDayModal = () => {
+    setEditingDay(null);
+  };
+
+  const handleSaveDayRecord = (dayData) => {
+    if (editingDay && onSaveDay) {
+      onSaveDay(year, month, editingDay, dayData);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Encabezado */}
+      {/* 1. Encabezado principal */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Historial y Desglose</Text>
+          <Text style={styles.title}>Resumen & Compartir</Text>
           <Text style={styles.subtitle}>
-            {MONTH_NAMES[month]} {year} • {items.length} día(s) con actividad
+            {MONTH_NAMES[month]} {year} • {items.length} día(s) trabajados
           </Text>
         </View>
 
-        <View style={styles.headerActions}>
-          {items.length > 0 && (
-            <>
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={handleShare}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="share-variant" size={20} color={COLORS.primaryLight} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.iconBtn, styles.clearBtn]}
-                onPress={handleClear}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="trash-can-outline" size={20} color={COLORS.danger} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+        {items.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearIconBtn}
+            onPress={handleClear}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={20} color={COLORS.danger} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Tarjeta resumen rápido con Cortes 1 y 15 */}
+      {/* 2. Botón principal: Compartir por WhatsApp (Don't Make Me Think) */}
+      <TouchableOpacity
+        style={styles.whatsAppShareBtn}
+        onPress={handleShareWhatsApp}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons name="whatsapp" size={22} color="#FFFFFF" />
+        <View style={styles.whatsAppTextContainer}>
+          <Text style={styles.whatsAppBtnTitle}>Compartir Reporte por WhatsApp</Text>
+          <Text style={styles.whatsAppBtnSubtitle}>Envía el resumen quincenal y desglose detallado</Text>
+        </View>
+        <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {/* 3. Tarjetas compactas de Cortes 1 y 15 */}
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Pago Día 1 ({calculation.firstCutPercent}%)</Text>
+          <Text style={styles.summaryLabel}>DÍA 1 ({calculation.firstCutPercent}%)</Text>
           <Text style={[styles.summaryVal, { color: COLORS.primaryLight }]}>
             {formatUSD(calculation.firstCutTotal)}
           </Text>
@@ -105,9 +123,11 @@ export default function RecordsListScreen({
             </Text>
           )}
         </View>
+
         <View style={styles.summaryDivider} />
+
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Pago Día 15 ({calculation.secondCutPercent}%)</Text>
+          <Text style={styles.summaryLabel}>DÍA 15 ({calculation.secondCutPercent}%)</Text>
           <Text style={[styles.summaryVal, { color: COLORS.indigoLight }]}>
             {formatUSD(calculation.secondCutTotal)}
           </Text>
@@ -117,9 +137,11 @@ export default function RecordsListScreen({
             </Text>
           )}
         </View>
+
         <View style={styles.summaryDivider} />
+
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Total Mes</Text>
+          <Text style={styles.summaryLabel}>TOTAL MES</Text>
           <Text style={[styles.summaryVal, { color: COLORS.text }]}>
             {formatUSD(calculation.grandTotal)}
           </Text>
@@ -131,95 +153,127 @@ export default function RecordsListScreen({
         </View>
       </View>
 
-      {/* Lista de registros */}
+      {/* 4. Lista cronológica de días trabajados */}
       {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons name="calendar-blank-outline" size={64} color={COLORS.borderLight} />
-          <Text style={styles.emptyTitle}>No hay registros este mes</Text>
+          <Text style={styles.emptyTitle}>Sin actividades este mes</Text>
           <Text style={styles.emptySub}>
-            Toca los días en el calendario para marcar guardias, horas extras o fines de semana trabajados.
+            Toca los días en el Calendario para marcar guardias, horas extras o fines de semana trabajados con 1 toque.
           </Text>
+          {onSelectDay && (
+            <TouchableOpacity
+              style={styles.goToCalendarBtn}
+              onPress={() => onSelectDay(1)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="calendar-month" size={18} color="#0F172A" />
+              <Text style={styles.goToCalendarText}>Ir al Calendario</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => String(item.day)}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.card}
-              onPress={() => onSelectDay(item.day)}
+              style={styles.dayRecordCard}
+              onPress={() => handleOpenDayModal(item.day)}
               activeOpacity={0.7}
             >
-              {/* Columna Día */}
-              <View style={styles.dayCol}>
-                <Text style={styles.dayNum}>{item.day}</Text>
-                <Text style={styles.dayWk}>{item.dayOfWeek}</Text>
+              {/* Columna izquierda: Número del día y Día de la semana */}
+              <View style={styles.dayRecordLeft}>
+                <View style={styles.dayNumberCircle}>
+                  <Text style={styles.dayNumberText}>{item.day}</Text>
+                </View>
+                <View>
+                  <Text style={styles.dayRecordDayName}>{item.fullDayOfWeek}</Text>
+                  <Text style={styles.dayRecordPeriod}>
+                    {item.day <= 15 ? 'Corte Día 1' : 'Corte Día 15'}
+                  </Text>
+                </View>
               </View>
 
-              {/* Columna Detalles */}
-              <View style={styles.detailsCol}>
-                <View style={styles.badgesRow}>
+              {/* Columna central: Badges de conceptos */}
+              <View style={styles.dayRecordCenter}>
+                <View style={styles.badgeRow}>
                   {item.isGuardia && (
-                    <View style={[styles.badge, { backgroundColor: COLORS.guardiaBg }]}>
-                      <MaterialCommunityIcons name="shield" size={12} color={COLORS.guardia} />
-                      <Text style={[styles.badgeTxt, { color: COLORS.guardia }]}>
-                        {settings?.guardDutyName || 'Guardia'} (+{formatUSD(item.guardPay)})
+                    <View style={[styles.badgePill, { backgroundColor: COLORS.guardiaBg }]}>
+                      <Text style={[styles.badgePillText, { color: COLORS.guardia }]}>
+                        {settings?.guardDutyName || 'Guardia'}
                       </Text>
                     </View>
                   )}
 
                   {item.isGuardiaCompleta && (
-                    <View style={[styles.badge, { backgroundColor: COLORS.guardiaCompletaBg }]}>
-                      <MaterialCommunityIcons name="shield-star" size={12} color={COLORS.guardiaCompleta} />
-                      <Text style={[styles.badgeTxt, { color: COLORS.guardiaCompleta }]}>
-                        {settings?.fullGuardDutyName || 'Guardia Compl.'} (+{formatUSD(item.fullGuardPay)})
-                      </Text>
-                    </View>
-                  )}
-
-                  {item.overtimeHours > 0 && (
-                    <View style={[styles.badge, { backgroundColor: COLORS.overtimeBg }]}>
-                      <MaterialCommunityIcons name="clock-outline" size={12} color={COLORS.overtime} />
-                      <Text style={[styles.badgeTxt, { color: COLORS.overtime }]}>
-                        {item.overtimeHours}h {settings?.overtimeName?.toLowerCase() || 'extras'} (+{formatUSD(item.overtimePay)})
-                      </Text>
-                    </View>
-                  )}
-
-                  {item.isWeekend && (
-                    <View style={[styles.badge, { backgroundColor: COLORS.weekendBg }]}>
-                      <MaterialCommunityIcons name="beach" size={12} color={COLORS.weekend} />
-                      <Text style={[styles.badgeTxt, { color: COLORS.weekend }]}>
-                        {settings?.weekendName || 'Fin de sem.'} (+{formatUSD(item.weekendPay)})
+                    <View style={[styles.badgePill, { backgroundColor: COLORS.guardiaCompletaBg }]}>
+                      <Text style={[styles.badgePillText, { color: COLORS.guardiaCompleta }]}>
+                        {settings?.fullGuardDutyName || 'G. Completa'}
                       </Text>
                     </View>
                   )}
 
                   {item.isSpecialPay && (
-                    <View style={[styles.badge, { backgroundColor: COLORS.specialBg }]}>
-                      <MaterialCommunityIcons name="star" size={12} color={COLORS.special} />
-                      <Text style={[styles.badgeTxt, { color: COLORS.special }]}>
-                        {settings?.specialPayName || 'Guardia Especial'} (+{formatUSD(item.specialPay)})
+                    <View style={[styles.badgePill, { backgroundColor: COLORS.specialBg }]}>
+                      <Text style={[styles.badgePillText, { color: COLORS.special }]}>
+                        {settings?.specialPayName || 'Especial'}
+                      </Text>
+                    </View>
+                  )}
+
+                  {item.overtimeHours > 0 && (
+                    <View style={[styles.badgePill, { backgroundColor: COLORS.overtimeBg }]}>
+                      <Text style={[styles.badgePillText, { color: COLORS.overtime }]}>
+                        +{item.overtimeHours}h Extra
+                      </Text>
+                    </View>
+                  )}
+
+                  {item.isWeekend && (
+                    <View style={[styles.badgePill, { backgroundColor: COLORS.weekendBg }]}>
+                      <Text style={[styles.badgePillText, { color: COLORS.weekend }]}>
+                        {settings?.weekendName || 'Fin de sem.'}
                       </Text>
                     </View>
                   )}
                 </View>
 
-                {item.notes ? (
-                  <Text style={styles.notesText} numberOfLines={1}>
+                {item.notes && item.notes.trim().length > 0 && (
+                  <Text style={styles.recordNotesText} numberOfLines={1}>
                     📝 {item.notes}
                   </Text>
-                ) : null}
+                )}
               </View>
 
-              {/* Columna Monto Total Día */}
-              <View style={styles.amountCol}>
-                <Text style={styles.dayTotalAmount}>+{formatUSD(item.totalDayExtra)}</Text>
-                <MaterialCommunityIcons name="pencil-outline" size={14} color={COLORS.textMuted} />
+              {/* Columna derecha: Subtotal monetario del día */}
+              <View style={styles.dayRecordRight}>
+                <Text style={styles.dayRecordAmount}>+{formatUSD(item.totalDayExtra)}</Text>
+                {bcvRate > 0 && (
+                  <Text style={styles.dayRecordAmountVES}>
+                    +{formatVES(item.totalDayExtra * bcvRate)}
+                  </Text>
+                )}
+                <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.textMuted} style={{ marginTop: 2 }} />
               </View>
             </TouchableOpacity>
           )}
+        />
+      )}
+
+      {/* Modal para editar día directamente desde el listado */}
+      {editingDay && (
+        <DayModal
+          visible={!!editingDay}
+          day={editingDay}
+          month={month}
+          year={year}
+          initialRecord={records[editingDay] || null}
+          settings={settings}
+          onClose={handleCloseDayModal}
+          onSave={handleSaveDayRecord}
         />
       )}
     </View>
@@ -237,157 +291,215 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 22,
     fontWeight: '900',
     color: COLORS.text,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 2,
+    fontWeight: '500',
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  iconBtn: {
-    backgroundColor: COLORS.surfaceLight,
-    padding: 10,
-    borderRadius: 12,
+  clearIconBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  clearBtn: {
     borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  whatsAppShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 12,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  whatsAppTextContainer: {
+    flex: 1,
+  },
+  whatsAppBtnTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  whatsAppBtnSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '500',
+    marginTop: 1,
   },
   summaryBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceCard,
     marginHorizontal: 16,
-    marginVertical: 10,
-    borderRadius: 16,
+    marginVertical: 6,
     paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
+  summaryDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: COLORS.border,
+  },
   summaryLabel: {
-    fontSize: 10,
+    fontSize: 9,
+    fontWeight: '800',
     color: COLORS.textMuted,
-    fontWeight: '700',
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
   summaryVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
   },
   summaryValVES: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#34D399',
+    color: COLORS.textSecondary,
     marginTop: 2,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: COLORS.border,
+    fontWeight: '600',
   },
   listContent: {
     paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 30,
+    gap: 8,
   },
-  card: {
+  dayRecordCard: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.surfaceCard,
-    borderRadius: 16,
     padding: 12,
-    marginBottom: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  dayCol: {
-    width: 44,
+  dayRecordLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    width: 110,
+  },
+  dayNumberCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
-    paddingRight: 8,
+    alignItems: 'center',
   },
-  dayNum: {
-    fontSize: 18,
+  dayNumberText: {
+    fontSize: 15,
     fontWeight: '900',
+    color: COLORS.primaryLight,
+  },
+  dayRecordDayName: {
+    fontSize: 12,
+    fontWeight: '700',
     color: COLORS.text,
   },
-  dayWk: {
+  dayRecordPeriod: {
     fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    color: COLORS.textMuted,
+    marginTop: 1,
   },
-  detailsCol: {
+  dayRecordCenter: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
-  badgesRow: {
+  badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
     gap: 4,
   },
-  badgeTxt: {
-    fontSize: 10,
-    fontWeight: '700',
+  badgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  notesText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 6,
+  badgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  recordNotesText: {
+    fontSize: 10,
+    color: COLORS.overtime,
+    marginTop: 4,
     fontStyle: 'italic',
   },
-  amountCol: {
+  dayRecordRight: {
     alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 4,
+    minWidth: 80,
   },
-  dayTotalAmount: {
+  dayRecordAmount: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.primaryLight,
+  },
+  dayRecordAmountVES: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingBottom: 40,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.text,
     marginTop: 16,
   },
   emptySub: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  goToCalendarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 16,
+  },
+  goToCalendarText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
   },
 });

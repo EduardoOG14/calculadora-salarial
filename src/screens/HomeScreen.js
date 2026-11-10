@@ -6,14 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Share,
-  Platform,
 } from 'react-native';
 import { COLORS } from '../constants/theme';
 import SalarySummaryCard from '../components/SalarySummaryCard';
 import CalendarView from '../components/CalendarView';
 import DayModal from '../components/DayModal';
-import MultiDayModal from '../components/MultiDayModal';
-import { calculateSalary, generateShareText, MONTH_NAMES } from '../utils/calculator';
+import {
+  calculateSalary,
+  generateShareText,
+  MONTH_NAMES,
+} from '../utils/calculator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function HomeScreen({
@@ -28,18 +30,16 @@ export default function HomeScreen({
   onNextMonth,
   onSaveDay,
   onSaveMultipleDays,
+  onClearMonth,
   onSaveSettings,
 }) {
   const [selectedDay, setSelectedDay] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Estado para selección múltiple de días
-  const [multiSelectedDays, setMultiSelectedDays] = useState([]);
-  const [multiModalVisible, setMultiModalVisible] = useState(false);
-
-  // Calcular salario del mes completo con cortes 1 y 15
+  // Calcular salario del mes completo en tiempo real
   const calculation = calculateSalary(settings, records, year, month);
 
+  // Abrir modal de inspección / detalle para un día
   const handleOpenDay = (day) => {
     setSelectedDay(day);
     setModalVisible(true);
@@ -56,22 +56,49 @@ export default function HomeScreen({
     }
   };
 
-  // Abrir modal de asignación múltiple
-  const handleOpenMultiSelectModal = (days) => {
-    setMultiSelectedDays(days);
-    setMultiModalVisible(true);
+  // Manejo directo de Pincel Activo (Don't Make Me Think - 1 solo toque)
+  const handleQuickApplyBrush = (day, brushType) => {
+    const current = records[day] || {};
+    let updated = { ...current };
+
+    if (brushType === 'guardia') {
+      updated.isGuardia = !current.isGuardia;
+    } else if (brushType === 'guardiaCompleta') {
+      updated.isGuardiaCompleta = !current.isGuardiaCompleta;
+    } else if (brushType === 'special') {
+      const nextSpecial = !current.isSpecialPay;
+      updated.isSpecialPay = nextSpecial;
+      if (nextSpecial && !updated.specialPayAmount) {
+        updated.specialPayAmount = Number(settings.specialPayRate) || 50;
+      }
+    } else if (brushType === 'weekend') {
+      updated.isWeekend = !current.isWeekend;
+    } else if (brushType === 'overtime') {
+      const currentHours = Number(current.overtimeHours) || 0;
+      const nextHours = currentHours + 1;
+      updated.overtimeHours = nextHours > 12 ? 0 : nextHours;
+    } else if (brushType === 'eraser') {
+      updated = {
+        isGuardia: false,
+        isGuardiaCompleta: false,
+        isSpecialPay: false,
+        overtimeHours: 0,
+        isWeekend: false,
+        notes: '',
+      };
+    }
+
+    onSaveDay(year, month, day, updated);
   };
 
-  const handleCloseMultiModal = () => {
-    setMultiModalVisible(false);
-  };
-
-  const handleApplyMultiDays = (patchData) => {
-    if (onSaveMultipleDays && multiSelectedDays.length > 0) {
-      onSaveMultipleDays(year, month, multiSelectedDays, patchData);
+  // Aplicación en lote (Semana actual, Fines de semana, Todo el mes)
+  const handleBatchApply = (daysArray, patchData) => {
+    if (onSaveMultipleDays && daysArray.length > 0) {
+      onSaveMultipleDays(year, month, daysArray, patchData);
     }
   };
 
+  // Compartir resumen por WhatsApp u otras apps con 1 toque
   const handleShareSummary = async () => {
     try {
       const text = generateShareText(calculation, settings, year, month, bcvRate);
@@ -90,7 +117,7 @@ export default function HomeScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Barra superior de la App */}
+        {/* Barra superior */}
         <View style={styles.topBar}>
           <View>
             <Text style={styles.appTitle}>Calculadora Salarial</Text>
@@ -108,7 +135,7 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Tarjeta de cálculo automático de salario del mes */}
+        {/* Tarjeta de cálculo automático con Cortes Quincenales 1 y 15 */}
         <SalarySummaryCard
           calculation={calculation}
           periodName={`${MONTH_NAMES[month]} ${year}`}
@@ -117,7 +144,7 @@ export default function HomeScreen({
           onRefreshBcv={onRefreshBcv}
         />
 
-        {/* Calendario interactivo de días con soporte para selección múltiple */}
+        {/* Calendario interactivo con Modo Pincel ("Don't Make Me Think") */}
         <CalendarView
           year={year}
           month={month}
@@ -126,18 +153,21 @@ export default function HomeScreen({
           onPrevMonth={onPrevMonth}
           onNextMonth={onNextMonth}
           onSelectDay={handleOpenDay}
-          onOpenMultiSelectModal={handleOpenMultiSelectModal}
+          onQuickApplyBrush={handleQuickApplyBrush}
+          onBatchApply={handleBatchApply}
+          onClearMonth={onClearMonth}
         />
 
-        <View style={styles.instructionsBox}>
-          <MaterialCommunityIcons name="information-outline" size={18} color={COLORS.indigoLight} />
-          <Text style={styles.instructionsText}>
-            💡 Tip: Mantén presionado cualquier día para activar la selección múltiple al instante o para abarcar tramos enteros de fechas con feedback táctil.
+        {/* Ayuda contextual sutil */}
+        <View style={styles.hintBox}>
+          <MaterialCommunityIcons name="gesture-tap" size={16} color={COLORS.indigoLight} />
+          <Text style={styles.hintText}>
+            Toca directamente cualquier día para marcarlo con la herramienta activa. Mantén presionado un día para añadir notas o montos específicos.
           </Text>
         </View>
       </ScrollView>
 
-      {/* Modal para configurar un solo día */}
+      {/* Modal para inspeccionar/añadir notas a un día específico */}
       <DayModal
         visible={modalVisible}
         day={selectedDay}
@@ -147,17 +177,6 @@ export default function HomeScreen({
         settings={settings}
         onClose={handleCloseModal}
         onSave={handleSaveDayRecord}
-      />
-
-      {/* Modal para configurar múltiples días a la vez */}
-      <MultiDayModal
-        visible={multiModalVisible}
-        selectedDays={multiSelectedDays}
-        month={month}
-        year={year}
-        settings={settings}
-        onClose={handleCloseMultiModal}
-        onApply={handleApplyMultiDays}
       />
     </View>
   );
@@ -169,15 +188,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 14,
+    paddingBottom: 6,
   },
   appTitle: {
     fontSize: 22,
@@ -198,22 +217,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  instructionsBox: {
+  hintBox: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    padding: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.25)',
   },
-  instructionsText: {
+  hintText: {
     flex: 1,
-    color: COLORS.textSecondary,
     fontSize: 11,
+    color: COLORS.indigoLight,
     lineHeight: 16,
+    fontWeight: '500',
   },
 });
